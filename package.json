@@ -14,7 +14,8 @@
     "ai:spots": "tsx scripts/ai-spots.ts",
     "ai:match": "tsx scripts/ai-match.ts",
     "ai:cli": "tsx scripts/ai-cli.ts",
-    "gen:handrank": "tsx scripts/generate-hand-rank.ts"
+    "gen:handrank": "tsx scripts/generate-hand-rank.ts",
+    "gen:pushfold": "tsx scripts/generate-pushfold.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

@@ -3,7 +3,8 @@ import { AI } from '../../config';
 import type { Ctx } from './context';
 import { equityVsRanges } from './equity';
 import { isBluffCandidate, isPremium, isWheelAceSuited } from './handrank';
-import { levelFx } from './persona';
+import { levelFx, PERSONAS } from './persona';
+import { pushMargin } from './pushfold';
 import { behindPreflop, buildRange, openPctFor, pushPctFor } from './range';
 import type { AiMemory, AiProfile, Option } from './types';
 
@@ -32,6 +33,36 @@ export function moodAdj(prof: AiProfile, mem: AiMemory) {
   };
 }
 
+/**
+ * 토너먼트 흐름에 따른 기어 변화 (overview 3.7 ④)
+ *  - 초반(깊은 스택): 피쉬는 더 많이 들어오고, 레귤러류는 차분
+ *  - 칩리더: 짧은 스택들을 압박 (오픈 넓게)
+ *  - 아주 짧은 스택: 조급한 성향(매니악·초보)은 더 넓게 올인, 니트는 버팀
+ */
+export function gear(ctx: Ctx, prof: AiProfile): { openMult: number; pushShift: number; note: string } {
+  let openMult = 1, pushShift = 0;
+  const notes: string[] = [];
+  const fish = PERSONAS[prof.personaId].fish;
+  if (ctx.effBB > 80) {
+    if (fish) { openMult *= 1.15; notes.push('초반 느슨'); }
+    else if (prof.personaId === 'reg' || prof.personaId === 'nit') openMult *= 0.95;
+  }
+  const stacks = ctx.view.seats.map((s) => s.stack + s.committed).sort((a, b) => b - a);
+  const me = ctx.view.seats.find((s) => s.seat === ctx.view.mySeat)!;
+  const myTotal = me.stack + me.committed;
+  const aggressive = prof.p.aggression >= 0.1 || prof.level >= 6;
+  if (aggressive && stacks.length >= 3 && myTotal === stacks[0] && myTotal >= 1.5 * stacks[1]) {
+    const others = ctx.view.seats.filter((s) => s.seat !== ctx.view.mySeat && s.status !== 'folded');
+    const avgBB = others.reduce((a, s) => a + s.stack + s.committed, 0) / Math.max(1, others.length) / ctx.bb;
+    if (avgBB < 25) { openMult *= 1.25; pushShift += 0.2; notes.push('칩리더 압박'); }
+  }
+  if (ctx.effBB < 8) {
+    if (prof.personaId === 'maniac' || prof.personaId === 'beginner') { pushShift += 0.35; notes.push('조급함'); }
+    if (prof.personaId === 'nit') { pushShift -= 0.25; notes.push('버티기'); }
+  }
+  return { openMult, pushShift, note: notes.length ? ' · ' + notes.join(', ') : '' };
+}
+
 export function preflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: () => number, quick: boolean): PolicyOut {
   const L = ctx.view.legal;
   const p = prof.p;
@@ -53,7 +84,19 @@ export function preflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: ()
   const facingAllInish = ctx.toCall > 0 && (ctx.toCall >= 0.35 * myTotal || ctx.raisesPre >= 3 || ctx.activeOpp.length === 0);
   if (facingAllInish) return evMode(ctx, prof, mem, rand, quick, loose);
 
-  // 숏스택 푸시/폴드 (오픈 상황)
+  // 숏스택 푸시/폴드 (오픈 상황): 직접 계산한 균형 표의 "올인 이득"을 기준으로,
+  // 레벨이 낮을수록 경계 근처 핸드에서만 헷갈림(사람다운 실수). 성향·기어로 이득 기준을 조금 이동.
+  if (ctx.effBB <= AI.pushFoldBB && ctx.raisesPre === 0 && L.canRaise && !L.canCheck) {
+    const anteBB = ctx.view.level.ante / ctx.bb;
+    const m = pushMargin(ctx.key, Math.max(1, ctx.behind), ctx.effBB, anteBB);
+    if (m !== null) {
+      const g = gear(ctx, prof);
+      const shift = (Math.min(loose, 2.5) - 1) * 0.8 + g.pushShift; // 루즈하면 넓게, 니트는 좁게 (BB)
+      const width = Math.max(0.02, fx.pushWidth);
+      const pr = sig((m + shift) / width);
+      return { options: [raise(L.maxRaiseTo), passive], probs: [pr, 1 - pr], note: `푸시/폴드 ${ctx.effBB.toFixed(1)}BB (뒤 ${ctx.behind}명): 표 기준 올인 이득 ${m >= 0 ? '+' : ''}${m.toFixed(2)}BB${g.note}` };
+    }
+  }
   if (ctx.effBB <= AI.pushFoldBB && ctx.raisesPre === 0 && L.canRaise) {
     const noise = fx.pushNoise * (rand() * 2 - 1);
     let pp = pushPctFor(ctx.effBB, Math.max(1, ctx.behind)) * Math.sqrt(loose) + noise;
@@ -73,7 +116,7 @@ export function preflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: ()
       const size = (3 + limpers) * bb;
       return { options: [raise(size), check], probs: [pr, 1 - pr], note: `림프팟 BB, 레이즈 범위 ${iso.toFixed(0)}%` };
     }
-    let o = openPctFor(ctx.behind) * loose;
+    let o = openPctFor(ctx.behind) * loose * gear(ctx, prof).openMult;
     if (limpers > 0) o *= 0.55;
     const prBase = sig((o - pct) / w);
     // 수동적인 성향은 레이즈 대신 림프

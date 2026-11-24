@@ -12,3 +12,6 @@ playwright-report/
 .claude/settings.local.json
 .DS_Store
 Thumbs.db
+
+# 계산 캐시
+scripts/.cache/

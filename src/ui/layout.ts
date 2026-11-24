@@ -10,6 +10,8 @@ export interface Geometry {
   sa: number; sb: number; seatW: number;
   /** 보드 카드 한 장 폭(px)과 카드 사이 간격 */
   board: number; boardGap: number;
+  /** 내 카드 폭(px) */
+  mine: number;
   /** 펠트(테이블) 사각형 */
   felt: { l: number; t: number; w: number; h: number };
   seats: Pt[];
@@ -72,10 +74,15 @@ export function computeGeometry(n: number, w: number, h: number): Geometry {
   for (let k = 0; k < n; k++) seats.push(pointAlong(segs, (total * k) / n));
   // 보드 카드 크기: 양옆 자리 사이 공간에 들어가는 만큼 (PC는 크게)
   const avail = 2 * sa - seatW - 14;
-  const board = Math.round(Math.min(avail / 5.35, portrait ? w * 0.14 : w * 0.062, h * (portrait ? 0.085 : 0.125), 96));
+  const board = Math.round(Math.min(avail / 5.35, portrait ? w * 0.14 : w * 0.085, h * (portrait ? 0.085 : 0.14), 96));
   const boardGap = Math.max(4, Math.round(board * 0.09));
+  // 내 카드 폭: 작은 폰에서도 잘 보이게 (세로는 폭·높이 중 작은 쪽, 가로는 높이 기준)
+  const mine = Math.round(Math.min(portrait ? w * 0.13 : Math.max(w * 0.05, h * 0.11), h * (portrait ? 0.088 : 0.12), 80));
+  // 내 자리(카드 + 이름표)가 아래로 잘리지 않게 위치 보정
+  const myHalfH = (mine * 1.4 + 44) / 2;
+  if (seats[0] && seats[0].y + myHalfH > h - 4) seats[0] = { x: seats[0].x, y: h - 4 - myHalfH };
   return {
-    w, h, portrait, cx, cy, sa, sb, seatW, board, boardGap,
+    w, h, portrait, cx, cy, sa, sb, seatW, board, boardGap, mine,
     felt: { l: cx - fa, t: cy - fb, w: 2 * fa, h: 2 * fb },
     seats,
     center: { x: cx, y: cy - (portrait ? h * 0.03 : h * 0.04) },

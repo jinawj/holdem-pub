@@ -250,7 +250,7 @@ export function Table({ m }: { m: TableModel }) {
 function cardVars(g: Geometry): { vars: CSSProperties; board: number; gap: number } {
   const seatW = g.seatW;
   const board = g.board;
-  const mine = Math.round(Math.min(g.portrait ? g.w * 0.13 : g.w * 0.05, g.h * (g.portrait ? 0.075 : 0.1), 80));
+  const mine = g.mine;
   const other = Math.round(Math.max(16, Math.min(g.portrait ? Math.min(mine * 0.45, g.w * 0.06) : mine * 0.62, 44)));
   return {
     vars: { ['--board-w' as string]: board + 'px', ['--mine-w' as string]: mine + 'px', ['--other-w' as string]: other + 'px', ['--seat-w' as string]: seatW + 'px' } as CSSProperties,
@@ -300,8 +300,11 @@ function Seat({ s, p, g, handNo, deal, anim }: { s: SeatModel; p: Pt; g: Geometr
   const actClass = anim && s.actType ? ' anim-' + s.actType : '';
   // 상대가 폴드하면 카드가 가운데로 버려짐 (내 카드는 흐리게 남김)
   const muck = s.folded && !s.isMe && !s.faceUp;
+  // 화면 아래쪽 자리는 말풍선·족보 이름을 이름표 아래가 아니라 옆(테이블 중앙 쪽)에 → 잘리지 않게
+  // 내 자리: 이름표 왼쪽 / 다른 아래쪽 자리: 자기 카드 뒷면 위에 겹쳐 (옆 자리·내 카드를 가리지 않게)
+  const sideFix = s.isMe ? ' tag-left' : p.y > g.h * 0.72 ? ' tag-over' : '';
   return (
-    <div className={'seat' + (s.isActor ? ' actor' : '') + (s.folded ? ' folded' : '') + (s.winner ? ' winner' : '') + (s.lost ? ' lost' : '') + (s.isMe ? ' me' : '') + (s.allInShow ? ' allin-show' : '')} style={{ left: p.x, top: p.y }}>
+    <div className={'seat' + sideFix + (s.isActor ? ' actor' : '') + (s.folded ? ' folded' : '') + (s.winner ? ' winner' : '') + (s.lost ? ' lost' : '') + (s.isMe ? ' me' : '') + (s.allInShow ? ' allin-show' : '')} style={{ left: p.x, top: p.y }}>
       {s.winner && s.won ? (
         // 화면 가장자리 자리는 배너가 잘리지 않게 안쪽으로 붙임
         <div className={'win-banner' + (p.x < g.w * 0.3 ? ' edge-l' : p.x > g.w * 0.7 ? ' edge-r' : '')}><b>WIN</b> +{fmt(s.won)}</div>

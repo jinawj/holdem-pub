@@ -5,6 +5,7 @@ import { AI } from '../../config';
 import type { PlayerView } from '../../engine/view';
 import { keyPct, isBluffCandidate } from './handrank';
 import { drawInfo, Range, strengthOnBoard, uniformRange } from './equity';
+import { hasPushTable, pushMargin } from './pushfold';
 
 const sig = (x: number) => 1 / (1 + Math.exp(-x));
 const PCT = COMBO_KEYS.map((k) => keyPct(k));
@@ -68,7 +69,11 @@ export function buildRange(view: PlayerView, seat: number, opts: RangeOpts): Ran
         const stackBB = (st.startStack) / bb;
         if (a.type === 'raise' || a.type === 'bet') {
           let f: (p: number, i: number) => number;
-          if (a.allIn && stackBB <= 18) {
+          if (a.allIn && stackBB <= 18 && raises === 0 && hasPushTable(stackBB)) {
+            // 첫 올인: 직접 계산한 푸시 균형 표 기준 (경계는 부드럽게)
+            const anteBB = view.level.ante / bb;
+            f = (_p, i) => { const m = pushMargin(COMBO_KEYS[i], behind, stackBB, anteBB); return m === null ? 0.5 : sig(m / 0.3); };
+          } else if (a.allIn && stackBB <= 18) {
             const pp = raises === 0 ? pushPctFor(stackBB, behind) : Math.max(4, lastOpenPct * 0.45);
             f = (p) => sig((pp - p) / 3);
           } else if (raises === 0) {

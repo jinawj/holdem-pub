@@ -7,11 +7,17 @@ import { levelFx } from './persona';
 import type { AiMemory, AiProfile, Option } from './types';
 
 /** 실력 온도: 균등 분포와 섞기 */
-export function applyTemperature(probs: number[], prof: AiProfile): number[] {
+export function applyTemperature(probs: number[], prof: AiProfile, options?: Option[]): number[] {
   const e = levelFx(prof.level).noise;
   if (e <= 0) return probs;
-  const u = 1 / probs.length;
-  return probs.map((p) => (1 - e) * p + e * u);
+  if (!options) { const u = 1 / probs.length; return probs.map((p) => (1 - e) * p + e * u); }
+  // 하수의 실수는 '수동적인' 방향 (조사: 과다 콜·체크, 공격은 강한 패일 때만)
+  // → 흐트러진 확률의 70%는 체크/콜로, 20%는 폴드로, 10%만 벳·레이즈로
+  const target = options.map((o) => (o.act === 'check' || o.act === 'call' ? 0.7 : o.act === 'fold' ? 0.2 : 0.1));
+  const nRaise = options.filter((o) => o.act === 'raise').length || 1;
+  const tw = target.map((t, i) => (options[i].act === 'raise' ? t / nRaise : t));
+  const s = tw.reduce((a, b) => a + b, 0) || 1;
+  return probs.map((p, i) => (1 - e) * p + e * (tw[i] / s));
 }
 
 /** 사람이 낼 법한 금액으로 반올림 + 레벨별 사이즈 실수 */
@@ -31,7 +37,19 @@ export function humanizeSize(to: number, ctx: Ctx, prof: AiProfile, rand: () => 
 }
 
 /** 고민 시간 (계산 시간과 분리된 연출) */
-export function thinkTime(ctx: Ctx, opt: Option, probs: number[], prof: AiProfile, rand: () => number, speedMult: number): number {
+export function thinkTime(ctx: Ctx, opt: Option, probs: number[], prof: AiProfile, rand: () => number, speedMult: number, eq?: number): number {
+  const ms0 = baseThink(ctx, opt, probs, prof, rand);
+  // 텔(버릇): 낮은 레벨 AI만. 같은 사람은 매번 같은 방향으로 → 지켜보면 읽을 수 있음
+  const tells = prof.tells ?? [];
+  let ms = ms0;
+  const strong = (eq ?? 0) > 0.75 || ctx.madeCat >= 3;
+  const aggressive = opt.act === 'raise';
+  if (tells.includes('strongTank') && strong && (aggressive || opt.act === 'call') && ctx.street !== 'preflop') ms = ms0 + 1300 + 900 * rand();
+  if (tells.includes('weakSnap') && aggressive && (eq ?? 1) < 0.3 && ctx.street !== 'preflop') ms = 300 + 300 * rand();
+  return Math.round(ms * speedMult);
+}
+
+function baseThink(ctx: Ctx, opt: Option, probs: number[], prof: AiProfile, rand: () => number): number {
   const T = AI.thinkMs;
   const sorted = [...probs].sort((a, b) => b - a);
   const difficulty = 1 - Math.min(1, (sorted[0] ?? 1) - (sorted[1] ?? 0));
@@ -41,7 +59,18 @@ export function thinkTime(ctx: Ctx, opt: Option, probs: number[], prof: AiProfil
   if (opt.act === 'call' && (ctx.flushDraw || ctx.oesd) && rand() < 0.5) ms = T.snap + 300 * rand(); // 드로우 스냅콜
   if (opt.act === 'fold' && difficulty > 0.5) ms += 700 * rand(); // 오래 고민하다 폴드
   if (prof.personaId === 'beginner' && opt.act === 'raise' && (ctx.madeCat >= 3)) ms += 1200; // 초보: 강한 패일 때 오래 고민
-  return Math.round(ms * speedMult);
+  return ms;
+}
+
+/** 금액 텔: 큰 벳=강함 / 강할수록 작게 (낮은 레벨만) */
+export function sizeTell(options: Option[], chosen: Option, eq: number, prof: AiProfile, ctx: Ctx): Option {
+  const tells = prof.tells ?? [];
+  if (chosen.act !== 'raise' || ctx.street === 'preflop') return chosen;
+  const bets = options.filter((o) => o.act === 'raise' && o.to !== undefined).sort((a, b) => a.to! - b.to!);
+  if (bets.length < 2) return chosen;
+  if (tells.includes('bigMeansStrong')) return eq > 0.7 ? bets[bets.length - 1] : bets[0];
+  if (tells.includes('strongSmallBet')) return eq > 0.75 ? bets[0] : eq < 0.3 ? bets[bets.length - 1] : chosen;
+  return chosen;
 }
 
 export interface HandSummaryForAi {

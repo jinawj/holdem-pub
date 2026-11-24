@@ -73,6 +73,22 @@ export const HABITS: Record<string, Habit> = {
   // 릭
   overvalueTopPair: (h) => (h.ctx.facingBet && h.ctx.topPair ? toAct(h, 'call') : null),
   scaredOfOvercards: (h) => (h.ctx.facingBet && h.ctx.madeCat === 1 && h.ctx.overcardsOnBoard >= 1 && !h.ctx.topPair ? toAct(h, 'fold') : null),
+  // 리버에서 원페어 이상이면 웬만하면 콜 (하수의 가장 큰 누수: 과다 콜)
+  callDownLight: (h) => (h.ctx.street === 'river' && h.ctx.facingBet && h.ctx.madeCat >= 1 && h.ctx.potOdds < 0.4 ? toAct(h, 'call') : null),
+  // 애매한 패로 오픈 림프 (레크리에이션 플레이어의 대표 신호)
+  limpMarginal: (h) => {
+    if (h.ctx.street !== 'preflop' || h.ctx.raisesPre !== 0 || h.ctx.view.legal.canCheck) return null;
+    const o = openPctFor(h.ctx.behind);
+    return h.ctx.pct > o * 0.8 && h.ctx.pct < o * 2.2 ? toAct(h, 'call') : null;
+  },
+  // 큰 벳이 무서워서 꽤 좋은 패도 접음
+  fearBigBets: (h) => (h.ctx.street !== 'preflop' && h.ctx.facingBet && h.ctx.lastBetFrac >= 0.75 && h.eq < 0.72 && h.eq > 0.3 ? toAct(h, 'fold') : null),
+  // 드로우를 수동적으로만 (세미블러프를 안 함)
+  passiveDraws: (h) => (!h.ctx.facingBet && h.ctx.street !== 'preflop' && h.ctx.street !== 'river' && (h.ctx.flushDraw || h.ctx.oesd) && h.eq < 0.55 ? toAct(h, 'check') : null),
+  // 프리플랍 레이저면 플랍은 무조건 C벳 (멀티웨이·웻 보드 상관없이)
+  autoCbet: (h) => (h.ctx.street === 'flop' && h.ctx.isPFA && !h.ctx.facingBet ? toAct(h, 'raise', 'mid') : null),
+  // 블러프 한 번 걸리면 한동안 블러프를 안 함
+  giveUpAfterCaught: (h) => (h.mem.caughtBluff > 0 && h.ctx.street !== 'preflop' && !h.ctx.facingBet && h.eq < 0.35 ? toAct(h, 'check') : null),
   minRaise: () => null, // 금액 단계에서 처리 (human.ts)
   resultOriented: () => null, // 기분(틸트) 쪽에서 처리
 };

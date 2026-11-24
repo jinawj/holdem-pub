@@ -5,7 +5,7 @@ import type { PlayerView } from '../../engine/view';
 import { buildContext, Ctx } from './context';
 import { applyGuards } from './guards';
 import { applyHabits } from './habits';
-import { applyTemperature, humanizeSize, recallAdjust, thinkTime } from './human';
+import { applyTemperature, humanizeSize, recallAdjust, sizeTell, thinkTime } from './human';
 import { levelFx, PERSONAS } from './persona';
 import { postflopPolicy } from './postflop';
 import { preflopPolicy } from './preflop';
@@ -75,7 +75,7 @@ export function decide(view: PlayerView, prof: AiProfile, mem: AiMemory, opts: D
   const h = applyHabits({ ctx, eq: eq ?? estimatePreflopEq(ctx), options, probs, mem }, habitList);
   probs = h.probs;
   // 2) 실력 온도 (실수)
-  probs = applyTemperature(probs, prof);
+  probs = applyTemperature(probs, prof, options);
   // 3) 안전장치
   const riverNuts = view.street === 'river' && !view.legal.canCheck ? isRiverNuts(view) : false;
   const g = applyGuards(options, probs, ctx, { eq: view.street === 'river' ? eq : undefined, riverNuts, evCut: fx.evCut });
@@ -83,11 +83,13 @@ export function decide(view: PlayerView, prof: AiProfile, mem: AiMemory, opts: D
   // 4) 샘플링
   let r = rand(), pick = probs.length - 1;
   for (let i = 0; i < probs.length; i++) { r -= probs[i]; if (r <= 0) { pick = i; break; } }
-  const chosen = options[pick];
+  const eqNow = eq ?? estimatePreflopEq(ctx);
+  // 금액 텔(낮은 레벨): 패 강도에 따라 크기가 일정하게 달라짐
+  const chosen = sizeTell(options, options[pick], eqNow, prof, ctx);
   let to = chosen.to;
   if (chosen.act === 'raise' && to !== undefined) to = humanizeSize(to, ctx, prof, rand);
   const calcMs = now() - t0;
-  const thinkMs = thinkTime(ctx, chosen, probs, prof, rand, opts.speedMult ?? 1);
+  const thinkMs = thinkTime(ctx, chosen, probs, prof, rand, opts.speedMult ?? 1, eqNow);
   return {
     type: chosen.act, to, thinkMs,
     memo: {

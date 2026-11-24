@@ -10,13 +10,16 @@ export function levelFx(level: number) {
   const t = (level - 1) / 9; // 0(Lv1) .. 1(Lv10)
   return {
     /** 균등 분포와 섞는 비율 (실수 온도) */
-    noise: level >= 10 ? 0 : 0.3 * Math.pow(1 - t, 1.3),
+    // 무작위 실수는 아주 조금만 (뜬금없는 실수 방지). 실력 차이는 방향 있는 실수(릭)·레인지 생각·푸시 정확도로 만든다
+    noise: level >= 10 ? 0 : 0.07 * Math.pow(1 - t, 1.5),
+    /** 푸시/폴드 표 경계 흐림 폭(BB): 이 폭 안의 경계 핸드만 헷갈림 */
+    pushWidth: [0, 1.1, 0.9, 0.75, 0.5, 0.4, 0.3, 0.15, 0.1, 0.05, 0.02][level] ?? 0.3,
     /** 상대 레인지를 얼마나 반영하는지 (0 = 내 패만 봄, 1 = 레인지로 생각) */
     rangeWeight: level <= 3 ? 0 : [0, 0, 0, 0, 0.3, 0.45, 0.6, 0.8, 0.9, 1, 1][level],
     /** 팟오즈 감각 오차 (필요 승률에 더해지는 무작위 폭) */
-    oddsNoise: 0.1 * (1 - t),
+    oddsNoise: 0.05 * (1 - t),
     /** EV softmax 온도 */
-    evTemp: 0.02 + 0.25 * Math.pow(1 - t, 1.5),
+    evTemp: 0.02 + 0.14 * Math.pow(1 - t, 1.5),
     /** 'none' = 내 패만 봄, 'rough' = 레인지 대충, 'full' = 레인지로 생각 */
     rangeThinking: (level <= 3 ? 'none' : level <= 6 ? 'rough' : 'full') as 'none' | 'rough' | 'full',
     /** 블로커·MDF·블러프 비율까지 고려 */
@@ -34,11 +37,16 @@ export function levelFx(level: number) {
   };
 }
 
+// 사람이 실제로 자주 하는 "방향 있는" 실수 (조사: 하수는 과다 콜·수동적·림프·약한 패 과대평가)
 const LEAKS_BY_TIER: Record<string, string[]> = {
-  fish: ['overvalueTopPair', 'chaseDraws', 'minRaise', 'slowplayMonster', 'scaredOfOvercards'],
-  mid: ['overvalueTopPair', 'minRaise', 'scaredOfOvercards', 'resultOriented'],
-  strong: ['overvalueTopPair', 'scaredOfOvercards'],
+  // 피쉬는 '너무 많이 콜하고 수동적'인 쪽으로 틀림 (겁먹고 접는 실수는 중간 레벨 쪽)
+  fish: ['overvalueTopPair', 'chaseDraws', 'minRaise', 'slowplayMonster', 'callDownLight', 'limpMarginal'],
+  mid: ['overvalueTopPair', 'minRaise', 'scaredOfOvercards', 'fearBigBets', 'passiveDraws', 'autoCbet', 'giveUpAfterCaught'],
+  strong: ['overvalueTopPair', 'fearBigBets', 'autoCbet'],
 };
+
+// 읽을 수 있는 버릇(텔): 낮은 레벨만. 솔버·레귤러는 없음
+const TELLS = ['strongTank', 'weakSnap', 'bigMeansStrong', 'strongSmallBet'];
 
 function jitter(x: number, rand: () => number, pct = 0.1) {
   return x * (1 + (rand() * 2 - 1) * pct);
@@ -56,7 +64,10 @@ export function makeProfile(personaId: PersonaId, level: number, rand: () => num
     recall: Math.min(1, j(d.recall)), showdownStyle: d.showdownStyle,
   };
   if (personaId === 'solver') { p.tiltProne = 0; p.moodRange = 0; p.recall = 0; p.aggression = 0; p.loose = 1; p.bluffMult = 1; }
-  const habits = d.habits.map((h) => ({ id: h.id, adherence: Math.min(0.98, h.adherence * fx.habitAcc) }));
+  // 좋은 습관(레귤러 등)은 레벨이 높을수록 잘 지킴. 피쉬 성향의 습관은 레벨과 무관하게 일정
+  // (피쉬의 레벨 차이는 방향 있는 실수의 개수·강도로 만든다)
+  const habitScale = d.fish ? 1 : fx.habitAcc;
+  const habits = d.habits.map((h) => ({ id: h.id, adherence: Math.min(0.98, h.adherence * habitScale) }));
   // 나쁜 습관(릭): Lv1–3: 3–4개 강하게, Lv4–6: 1–2개 약하게, Lv7–8: 0–1개 아주 약하게, Lv9+: 없음
   let leaks: { id: string; adherence: number }[] = [];
   const pick = (pool: string[], n: number, adh: number) => {
@@ -65,10 +76,24 @@ export function makeProfile(personaId: PersonaId, level: number, rand: () => num
     for (let i = 0; i < n && a.length; i++) out.push({ id: a.splice(Math.floor(rand() * a.length), 1)[0], adherence: adh });
     return out;
   };
-  if (level <= 3) leaks = pick(LEAKS_BY_TIER.fish, 3 + (rand() < 0.5 ? 1 : 0), 0.7);
-  else if (level <= 6) leaks = pick(LEAKS_BY_TIER.mid, 1 + (rand() < 0.5 ? 1 : 0), level === 4 ? 0.55 : level === 5 ? 0.45 : 0.35);
-  else if (level <= 8) leaks = pick(LEAKS_BY_TIER.strong, rand() < 0.5 ? 1 : 0, 0.15);
-  return { personaId, level, p, habits, leaks };
+  // 피쉬 구간 안에서도 레벨이 낮을수록 실수가 많고 강하게
+  if (level <= 3) leaks = pick(LEAKS_BY_TIER.fish, level === 1 ? 4 : level === 2 ? 3 : 2, level === 1 ? 0.9 : level === 2 ? 0.72 : 0.5);
+  else if (level <= 6) leaks = pick(LEAKS_BY_TIER.mid, 2, level === 4 ? 0.6 : level === 5 ? 0.5 : 0.4);
+  else if (level <= 8) leaks = pick(LEAKS_BY_TIER.strong, rand() < 0.5 ? 1 : 0, 0.2);
+  // 텔: Lv1–3 두 개, Lv4–5 한 개, 그 이상 없음. 솔버·레귤러는 없음
+  let tells: string[] = [];
+  if (personaId !== 'solver' && personaId !== 'reg') {
+    const nT = level <= 3 ? 2 : level <= 5 ? 1 : 0;
+    const pool = [...TELLS];
+    // 서로 반대되는 사이즈 텔은 같이 갖지 않음
+    for (let i = 0; i < nT && pool.length; i++) {
+      const t = pool.splice(Math.floor(rand() * pool.length), 1)[0];
+      tells.push(t);
+      if (t === 'bigMeansStrong') pool.splice(pool.indexOf('strongSmallBet'), 1);
+      if (t === 'strongSmallBet') pool.splice(pool.indexOf('bigMeansStrong'), 1);
+    }
+  }
+  return { personaId, level, p, habits, leaks, tells };
 }
 
 export function newMemory(): AiMemory {

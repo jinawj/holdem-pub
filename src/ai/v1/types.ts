@@ -22,6 +22,8 @@ export interface AiProfile {
   habits: { id: string; adherence: number }[];
   /** 레벨에 따른 나쁜 습관(릭) */
   leaks: { id: string; adherence: number }[];
+  /** 읽을 수 있는 버릇 (시간·금액). 예전 저장 파일에는 없을 수 있음 */
+  tells?: string[];
 }
 
 /** 핸드 사이에 이어지는 기분·기억 (저장 대상) */

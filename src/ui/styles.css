@@ -66,7 +66,7 @@ h3 { margin: 8px 0 0; }
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 @media (orientation: landscape) {
-  .game { grid-template-columns: 1fr minmax(300px, 28vw); grid-template-rows: auto 1fr auto; grid-template-areas: 'hud hud' 'table side' 'table controls'; }
+  .game { grid-template-columns: 1fr clamp(250px, 34vw, 380px); grid-template-rows: auto 1fr auto; grid-template-areas: 'hud hud' 'table side' 'table controls'; }
   .game .table-area { grid-row: 2 / 4; grid-column: 1; }
   .game .control-area { grid-row: 3; grid-column: 2; align-self: end; padding-bottom: 12px; }
 }
@@ -74,14 +74,14 @@ h3 { margin: 8px 0 0; }
 .hud { grid-area: hud; position: relative; z-index: 30; display: flex; align-items: center; gap: 4px; padding: 3px 6px; background: #0b1426; border-bottom: 1px solid #22314f; box-shadow: 0 2px 8px #0008; font-size: 0.88rem; }
 .hud .lvl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hud .info { display: flex; gap: 12px; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
-.hud .more { display: none; }
+.hud .icon.more { display: none; }
 .hud .clock { color: var(--accent); font-variant-numeric: tabular-nums; }
 .hud .ante { color: var(--muted); }
 .hud .icon { min-width: 42px; min-height: 40px; padding: 4px; display: inline-flex; align-items: center; justify-content: center; }
 .hud .bookmark { color: #9aa8c2; }
 .hud .bookmark.on { color: var(--accent); border-color: var(--accent); background: #3d3000; }
 @media (orientation: portrait) {
-  .hud .more { display: inline-flex; }
+  .hud .icon.more { display: inline-flex; }
   .hud .info { display: none; }
   .hud .info.open { display: flex; position: absolute; top: 100%; left: 0; right: 0; justify-content: space-around; padding: 6px 8px; background: #0b1426; border-bottom: 1px solid #22314f; box-shadow: 0 4px 10px #0009; }
 }
@@ -151,6 +151,13 @@ h3 { margin: 8px 0 0; }
 .dots i { width: 3px; height: 3px; background: #fff; border-radius: 50%; animation: blink 1s infinite; }
 .dots i:nth-child(2) { animation-delay: 0.2s; } .dots i:nth-child(3) { animation-delay: 0.4s; }
 @keyframes blink { 0%, 100% { opacity: 0.2; } 50% { opacity: 1; } }
+
+/* 화면 아래쪽 자리 말풍선·족보 이름 위치
+   tag-left: 내 자리 → 이름표 왼쪽 / tag-over: 다른 아래쪽 자리 → 자기 카드 뒷면 위에 겹쳐서 */
+.seat.tag-left .act-label { top: auto; bottom: 2px; margin-top: 0; right: calc(100% + 4px); }
+.seat.tag-left .hand-name { top: auto; bottom: calc(2px + 1.7em); right: calc(100% + 4px); }
+.seat.tag-over .act-label { top: 2px; margin-top: 0; z-index: 5; }
+.seat.tag-over .hand-name { top: -6px; z-index: 5; }
 
 /* ---- 액션 연출 ---- */
 /* 체크: 테이블을 두 번 톡톡 */
@@ -297,6 +304,20 @@ h3 { margin: 8px 0 0; }
 .modal-box .row { display: flex; gap: 10px; justify-content: center; }
 .paused { position: absolute; inset: 0; background: #0008; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; text-align: center; z-index: 20; }
 .toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 130px); transform: translateX(-50%); background: #000d; padding: 10px 16px; border-radius: 10px; z-index: 100; max-width: 90vw; }
+
+/* 낮은 가로 화면(폰 가로): 조작부를 촘촘하게 */
+@media (orientation: landscape) and (max-height: 500px) {
+  .controls, .controls.waiting { min-height: 0; gap: 4px; }
+  .size-row .quick, .bet-input { min-height: 34px; font-size: 0.78rem; }
+  .bigslider { height: 34px; }
+  .bigslider .thumb { width: 30px; height: 30px; }
+  .nudge { min-width: 40px; min-height: 36px; }
+  .btn { min-height: 46px; font-size: 0.92rem; }
+  .hud { padding: 2px 6px; }
+  .hud .icon { min-height: 36px; }
+  /* 공간이 없어 내 말풍선은 숨김 (내 액션은 내가 앎) */
+  .seat.me .act-label { display: none; }
+}
 
 /* ---------- 복기 ---------- */
 .rv-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
