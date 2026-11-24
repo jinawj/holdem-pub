@@ -85,6 +85,21 @@ test('my nickname is remembered and shown at my seat', async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
 });
 
+test('dealer badge is shown once, on the button seat', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await startGame(page, 8);
+  await waitMyTurn(page);
+  await expect(page.locator('.d-badge')).toHaveCount(1);
+  const ok = await page.evaluate(() => {
+    const btn = (window as any).__store.getState().game.t.hand.buttonSeat;
+    const seats = [...document.querySelectorAll('.table-area .seat')];
+    const idx = seats.findIndex((s) => s.querySelector('.d-badge'));
+    return idx === btn;
+  });
+  expect(ok).toBe(true);
+  await page.screenshot({ path: 'reports/screens/dealer-badge.png' });
+});
+
 test('bet sizing: quick buttons move the slider, typed amount is bet', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await startGame(page, 6);

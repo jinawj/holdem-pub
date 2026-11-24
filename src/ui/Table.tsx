@@ -223,7 +223,7 @@ export function Table({ m }: { m: TableModel }) {
                 <ChipStack amount={s.committed} size={betChip} perCol={6} cols={3} />
               </div>
             )}
-            <Seat s={s} p={p} g={g} handNo={m.handNo} anim={m.animMs > 0} deal={m.dealAnim && m.animMs > 0 ? { order: dealOrder, step: dealStep(m) } : null} />
+            <Seat s={s} p={p} g={g} handNo={m.handNo} anim={m.animMs > 0} isButton={s.seat === m.button} deal={m.dealAnim && m.animMs > 0 ? { order: dealOrder, step: dealStep(m) } : null} />
           </div>
         );
       })}
@@ -278,9 +278,12 @@ function dealOrderOf(m: TableModel): number[] {
 const dealStep = (m: TableModel) => Math.round(Math.max(55, m.animMs * 0.17));
 const dealDuration = (m: TableModel) => dealStep(m) * 2 * dealOrderOf(m).length + 450;
 
-function Seat({ s, p, g, handNo, deal, anim }: { s: SeatModel; p: Pt; g: Geometry; handNo: number; deal: { order: number[]; step: number } | null; anim: boolean }) {
+function Seat({ s, p, g, handNo, deal, anim, isButton }: { s: SeatModel; p: Pt; g: Geometry; handNo: number; deal: { order: number[]; step: number } | null; anim: boolean; isButton: boolean }) {
+  // 딜러 버튼: 테이블 위에 따로 두지 않고 버튼 자리 이름표 모서리에 붙임 → 다른 요소와 겹치지 않음
+  const dBadge = isButton ? <span className="d-badge" aria-label="딜러 버튼">D</span> : null;
   if (s.out) {
-    return <div className="seat empty" style={{ left: p.x, top: p.y }}><span>빈자리</span></div>;
+    // 데드 버튼(빈자리에 버튼)도 빈자리 상자에 표시
+    return <div className="seat empty" style={{ left: p.x, top: p.y }}><span>빈자리</span>{dBadge}</div>;
   }
   const idx = deal ? deal.order.indexOf(s.seat) : -1;
   // 카드가 테이블 가운데(딜러 자리)에서 날아오도록: 이 자리 기준 중앙까지의 거리
@@ -314,6 +317,7 @@ function Seat({ s, p, g, handNo, deal, anim }: { s: SeatModel; p: Pt; g: Geometr
         </div>
       )}
       <div key={actKey} className={'nameplate' + actClass} style={{ ['--pc' as string]: s.color }}>
+        {dBadge}
         <div className="nm">{s.name}{s.thinking && <span className="dots"><i /><i /><i /></span>}</div>
         {s.winner && s.won ? (
           // 승자 공개 전에는 받기 전 스택, 공개 순간 받은 뒤 스택으로 (결과 미리 보이지 않게)
