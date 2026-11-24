@@ -59,6 +59,13 @@ function baseThink(ctx: Ctx, opt: Option, probs: number[], prof: AiProfile, rand
   if (opt.act === 'call' && (ctx.flushDraw || ctx.oesd) && rand() < 0.5) ms = T.snap + 300 * rand(); // 드로우 스냅콜
   if (opt.act === 'fold' && difficulty > 0.5) ms += 700 * rand(); // 오래 고민하다 폴드
   if (prof.personaId === 'beginner' && opt.act === 'raise' && (ctx.madeCat >= 3)) ms += 1200; // 초보: 강한 패일 때 오래 고민
+  // 큰 결정은 사람처럼 오래: 올인(또는 스택의 큰 부분)에 콜·폴드를 정할 때, 내가 올인할 때
+  const L = ctx.view.legal;
+  const myTotal = L.stack + L.committed;
+  const bigCall = ctx.toCall > 0 && ctx.toCall >= 0.4 * myTotal;
+  const shoving = opt.act === 'raise' && opt.to !== undefined && opt.to >= L.maxRaiseTo;
+  if (bigCall && opt.act !== 'raise') ms += 1500 + 1500 * rand();
+  else if (shoving) ms += 800 + 900 * rand();
   return ms;
 }
 

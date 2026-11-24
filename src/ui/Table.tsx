@@ -99,16 +99,19 @@ export function Table({ m }: { m: TableModel }) {
   const prevLen = p0.handNo === m.handNo ? p0.boardLen : 0;
   if (m.animMs > 0 && m.board.length > prevLen) {
     let end = 0, added = false;
-    // 칩이 팟으로 다 모인 다음 카드가 나옴
-    const base = T.collectDelay + T.chipFly;
+    // 칩이 팟으로 다 모인 다음 카드가 나옴.
+    // 올인 런아웃(핸드가 이미 끝났는데 카드가 남음): 공개된 패를 잠깐 보여 준 뒤, 카드 사이 간격도 길게
+    const runout = !!m.winners;
+    const base = T.collectDelay + T.chipFly + (runout ? T.runoutPause : 0);
+    const gap = runout ? T.runGap : T.streetGap;
     for (let i = prevLen; i < m.board.length; i++) {
       const key = `${m.handNo}-${i}`;
       if (boardDelay.current[key] !== undefined) continue;
       added = true;
       let a: BoardAnim;
       if (i < 3) a = { mode: 'flop', appear: base + i * T.flopGap, spread: base + T.spreadAt };
-      else if (i === 3) a = { mode: 'flip', appear: base + (prevLen < 3 ? T.flopEnd + T.streetGap : 0), spread: 0 };
-      else a = { mode: 'flip', appear: base + (prevLen < 3 ? T.flopEnd + 2 * T.streetGap : prevLen < 4 ? T.streetGap : 0), spread: 0 };
+      else if (i === 3) a = { mode: 'flip', appear: base + (prevLen < 3 ? T.flopEnd + gap : 0), spread: 0 };
+      else a = { mode: 'flip', appear: base + (prevLen < 3 ? T.flopEnd + 2 * gap : prevLen < 4 ? gap : 0), spread: 0 };
       boardDelay.current[key] = a;
       end = Math.max(end, a.mode === 'flop' ? base + T.flopEnd : a.appear + T.flipDur);
     }
@@ -259,7 +262,9 @@ function timings(animMs: number) {
   return {
     flopGap, spreadAt, spreadDur, flopEnd: spreadAt + spreadDur,
     flipDur: Math.round(Math.max(420, a * 1.1)),
-    streetGap: Math.round(Math.max(900, a * 2.4)), // 올인 런아웃에서 다음 카드까지
+    streetGap: Math.round(Math.max(900, a * 2.4)), // 한 번에 여러 장이 나올 때 다음 카드까지
+    runoutPause: Math.round(Math.max(1200, a * 2.4)), // 올인 콜 뒤 공개된 패를 보여 주는 시간 (런아웃 시작 전)
+    runGap: Math.round(Math.max(1500, a * 3.2)), // 올인 런아웃에서 플랍 → 턴 → 리버 간격
     betIn: Math.round(Math.max(420, a * 1.35)), // 베팅 칩이 앞으로 나오는 시간
     chipFly: Math.round(Math.max(500, a * 1.6)), // 칩이 팟·승자에게 가는 시간
     collectDelay: Math.round(Math.max(450, a * 1.2)), // 마지막 액션 칩을 보여 준 뒤 팟으로 모으기까지
