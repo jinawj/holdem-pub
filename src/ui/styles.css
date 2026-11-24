@@ -49,6 +49,7 @@ h3 { margin: 8px 0 0; }
 .seg-label { font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
 .seg-opts { display: flex; flex-wrap: wrap; gap: 6px; }
 .seg-opts button { flex: 1 1 0; min-width: 56px; }
+.nick-input { width: 100%; min-height: 46px; font-size: 1.1rem; font-weight: 700; text-align: center; }
 .big { min-height: 52px; font-size: 1.05rem; font-weight: 600; }
 .primary { background: linear-gradient(#f0c341, #c99a14); border-color: var(--accent); color: #1b1300; }
 .archive { display: flex; flex-direction: column; gap: 6px; }
@@ -69,15 +70,21 @@ h3 { margin: 8px 0 0; }
   .game .table-area { grid-row: 2 / 4; grid-column: 1; }
   .game .control-area { grid-row: 3; grid-column: 2; align-self: end; padding-bottom: 12px; }
 }
-.hud { grid-area: hud; display: flex; align-items: center; gap: 6px; padding: 4px 6px; background: #0a1120cc; border-bottom: 1px solid #1c2944; font-size: 0.82rem; }
-.hud .lvl { flex: 1; min-width: 0; line-height: 1.25; }
-.hud .info { text-align: right; line-height: 1.25; }
-.hud .sub { color: var(--muted); font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 상단 정보줄: 불투명, 한 줄. 레벨·블라인드·남은 시간은 항상 보이고 나머지는 세로 화면에서 ▾로 펼침 */
+.hud { grid-area: hud; position: relative; z-index: 30; display: flex; align-items: center; gap: 4px; padding: 3px 6px; background: #0b1426; border-bottom: 1px solid #22314f; box-shadow: 0 2px 8px #0008; font-size: 0.88rem; }
+.hud .lvl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hud .info { display: flex; gap: 12px; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.hud .more { display: none; }
 .hud .clock { color: var(--accent); font-variant-numeric: tabular-nums; }
 .hud .ante { color: var(--muted); }
-.hud .icon { min-width: 44px; padding: 4px; }
-.hud .hl { padding: 4px 8px; white-space: nowrap; }
-.hud .hl.on { background: #5a4500; border-color: var(--accent); color: var(--accent); }
+.hud .icon { min-width: 42px; min-height: 40px; padding: 4px; display: inline-flex; align-items: center; justify-content: center; }
+.hud .bookmark { color: #9aa8c2; }
+.hud .bookmark.on { color: var(--accent); border-color: var(--accent); background: #3d3000; }
+@media (orientation: portrait) {
+  .hud .more { display: inline-flex; }
+  .hud .info { display: none; }
+  .hud .info.open { display: flex; position: absolute; top: 100%; left: 0; right: 0; justify-content: space-around; padding: 6px 8px; background: #0b1426; border-bottom: 1px solid #22314f; box-shadow: 0 4px 10px #0009; }
+}
 .table-area { grid-area: table; position: relative; min-height: 0; overflow: hidden; }
 .control-area { grid-area: controls; padding: 6px; }
 
@@ -96,7 +103,7 @@ h3 { margin: 8px 0 0; }
 .felt-line { position: absolute; inset: 9%; border-radius: 9999px; border: 2px solid #ffffff14; }
 .center { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 2; }
 .board { display: flex; gap: clamp(3px, 0.7vmin, 8px); }
-.pots { display: flex; gap: 12px; align-items: flex-end; }
+.pots { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); display: flex; gap: 12px; align-items: flex-start; }
 
 /* 카드 */
 .card { position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; color: #1a1a1a; border-radius: 6px; font-weight: 800; line-height: 0.95; box-shadow: 0 2px 4px rgba(0,0,0,0.45); }
@@ -182,7 +189,7 @@ h3 { margin: 8px 0 0; }
   position: absolute; transform: translate(-50%, -50%);
   width: 42px; height: 36px; background: linear-gradient(#ff5a5c, #c4141b);
   clip-path: polygon(50% 0, 100% 100%, 0 100%); display: flex; align-items: flex-end; justify-content: center;
-  color: #fff; font-size: 9px; font-weight: 900; line-height: 1; padding-bottom: 4px; z-index: 3; pointer-events: none;
+  color: #fff; font-size: 9px; font-weight: 900; line-height: 1; padding-bottom: 4px; z-index: 4; pointer-events: none;
   filter: drop-shadow(0 2px 3px #000a);
 }
 .allin-token.in { animation: token-in 650ms cubic-bezier(0.25, 1.3, 0.5, 1) both; }
@@ -224,6 +231,9 @@ h3 { margin: 8px 0 0; }
   animation: win-in 600ms cubic-bezier(0.3, 1.6, 0.5, 1) var(--win-delay, 0ms) both;
 }
 .win-banner b { margin-right: 4px; letter-spacing: 0.04em; }
+.win-banner.edge-l { left: 0; transform: none; animation-name: win-in-edge; }
+.win-banner.edge-r { left: auto; right: 0; transform: none; animation-name: win-in-edge; }
+@keyframes win-in-edge { 0% { transform: translateY(10px) scale(0.3); opacity: 0; } 100% { transform: none; opacity: 1; } }
 @keyframes win-in { 0% { transform: translateX(-50%) translateY(10px) scale(0.3); opacity: 0; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
 .seat.winner .nameplate { animation: win-glow 1.6s ease-out var(--win-delay, 0ms) both; }
 @keyframes win-glow {

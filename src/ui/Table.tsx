@@ -1,7 +1,7 @@
 import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CardView } from './CardView';
 import { ChipStack, fmt } from './Chips';
-import { betPosition, computeGeometry, dealerPosition, Geometry, Pt, tokenPosition } from './layout';
+import { betPosition, computeGeometry, dealerPosition, dealerSize, Geometry, Pt, tokenPosition } from './layout';
 
 export interface SeatModel {
   seat: number;
@@ -236,7 +236,7 @@ export function Table({ m }: { m: TableModel }) {
           </div>
         );
       })}
-      {w > 0 && <div className="dealer" style={{ left: btnPos.x, top: btnPos.y }}>D</div>}
+      {w > 0 && <div className="dealer" style={{ left: btnPos.x, top: btnPos.y, width: dealerSize(g), height: dealerSize(g), fontSize: dealerSize(g) * 0.5 }}>D</div>}
       {flights.map((f) => (
         <div key={f.id} className="flight" style={{ left: f.go ? f.to.x : f.from.x, top: f.go ? f.to.y : f.from.y, transition: `left ${T.chipFly}ms ease-in-out, top ${T.chipFly}ms ease-in-out, opacity ${T.chipFly}ms`, opacity: f.go ? 0.75 : 1 }}>
           <ChipStack amount={f.amount} size={betChip} perCol={5} cols={3} />
@@ -249,14 +249,12 @@ export function Table({ m }: { m: TableModel }) {
 /** 카드 크기: 화면 크기에 비례 (PC에서 크게, 폰에서 화면에 맞게) */
 function cardVars(g: Geometry): { vars: CSSProperties; board: number; gap: number } {
   const seatW = g.seatW;
-  // 보드는 양옆 자리 사이 공간에 들어가는 만큼 크게
-  const avail = 2 * g.sa - seatW - 14;
-  const board = Math.round(Math.min(avail / 5.35, g.portrait ? g.w * 0.14 : g.w * 0.062, g.h * (g.portrait ? 0.085 : 0.125), 96));
+  const board = g.board;
   const mine = Math.round(Math.min(g.portrait ? g.w * 0.13 : g.w * 0.05, g.h * (g.portrait ? 0.075 : 0.1), 80));
   const other = Math.round(Math.max(16, Math.min(g.portrait ? Math.min(mine * 0.45, g.w * 0.06) : mine * 0.62, 44)));
   return {
     vars: { ['--board-w' as string]: board + 'px', ['--mine-w' as string]: mine + 'px', ['--other-w' as string]: other + 'px', ['--seat-w' as string]: seatW + 'px' } as CSSProperties,
-    board, gap: Math.max(4, Math.round(board * 0.09)),
+    board, gap: g.boardGap,
   };
 }
 
@@ -304,7 +302,10 @@ function Seat({ s, p, g, handNo, deal, anim }: { s: SeatModel; p: Pt; g: Geometr
   const muck = s.folded && !s.isMe && !s.faceUp;
   return (
     <div className={'seat' + (s.isActor ? ' actor' : '') + (s.folded ? ' folded' : '') + (s.winner ? ' winner' : '') + (s.lost ? ' lost' : '') + (s.isMe ? ' me' : '') + (s.allInShow ? ' allin-show' : '')} style={{ left: p.x, top: p.y }}>
-      {s.winner && s.won ? <div className="win-banner"><b>WIN</b> +{fmt(s.won)}</div> : null}
+      {s.winner && s.won ? (
+        // 화면 가장자리 자리는 배너가 잘리지 않게 안쪽으로 붙임
+        <div className={'win-banner' + (p.x < g.w * 0.3 ? ' edge-l' : p.x > g.w * 0.7 ? ' edge-r' : '')}><b>WIN</b> +{fmt(s.won)}</div>
+      ) : null}
       {s.cards && (
         <div className={'hole' + (muck ? (anim ? ' mucked' : ' gone') : '')} key={handNo} style={muck ? { ['--dx' as string]: dx + 'px', ['--dy' as string]: dy + 'px' } : undefined}>
           {s.cards.map((c, i) => {

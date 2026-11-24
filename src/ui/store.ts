@@ -12,7 +12,7 @@ import nicknames from '../data/nicknames.json';
 import { kvDel, kvGet, kvSet } from '../persist/db';
 import { exportJson, migrateSave } from '../persist/file';
 
-export interface Settings { seats: number; stackBB: number; levelMinutes: number; aiSpeed: AiSpeed; difficulty: Difficulty; recall: boolean }
+export interface Settings { seats: number; stackBB: number; levelMinutes: number; aiSpeed: AiSpeed; difficulty: Difficulty; recall: boolean; /** 내 닉네임 (브라우저에 기억) */ myName?: string }
 export const defaultSettings: Settings = { seats: 8, stackBB: 200, levelMinutes: DEFAULT_LEVEL_MINUTES, aiSpeed: 'normal', difficulty: 'normal', recall: true };
 
 export interface Highlight { handNo: number; actionIndex: number; street: string }
@@ -129,7 +129,9 @@ export const useStore = create<Store>((set, get) => ({
     // 브라우저가 저장 공간이 부족할 때 기록을 지우지 않도록 '영구 저장' 요청 (지원 안 하면 무시)
     try { navigator.storage?.persist?.(); } catch { /* */ }
     const n = s.seats;
-    const names = ['나', ...shuffle(nicknames as string[]).slice(0, n - 1)];
+    // 내 닉네임(설정 화면에서 정한 것, 최대 5글자). AI 이름과 겹치지 않게
+    const me = (s.myName ?? '').trim().slice(0, 5) || '나';
+    const names = [me, ...shuffle((nicknames as string[]).filter((x) => x !== me)).slice(0, n - 1)];
     const t = createTournament(names, HUMAN, s.stackBB * START_STACK_MULT);
     const profiles = createAiProfiles(s.difficulty, n - 1, cryptoRand);
     const ai: GameSave['ai'] = {};

@@ -8,6 +8,8 @@ export interface Geometry {
   cx: number; cy: number;
   /** 좌석이 놓이는 스타디움 반폭·반높이 */
   sa: number; sb: number; seatW: number;
+  /** 보드 카드 한 장 폭(px)과 카드 사이 간격 */
+  board: number; boardGap: number;
   /** 펠트(테이블) 사각형 */
   felt: { l: number; t: number; w: number; h: number };
   seats: Pt[];
@@ -68,8 +70,12 @@ export function computeGeometry(n: number, w: number, h: number): Geometry {
   const total = segs.reduce((x, g) => x + g.len, 0);
   const seats: Pt[] = [];
   for (let k = 0; k < n; k++) seats.push(pointAlong(segs, (total * k) / n));
+  // 보드 카드 크기: 양옆 자리 사이 공간에 들어가는 만큼 (PC는 크게)
+  const avail = 2 * sa - seatW - 14;
+  const board = Math.round(Math.min(avail / 5.35, portrait ? w * 0.14 : w * 0.062, h * (portrait ? 0.085 : 0.125), 96));
+  const boardGap = Math.max(4, Math.round(board * 0.09));
   return {
-    w, h, portrait, cx, cy, sa, sb, seatW,
+    w, h, portrait, cx, cy, sa, sb, seatW, board, boardGap,
     felt: { l: cx - fa, t: cy - fb, w: 2 * fa, h: 2 * fb },
     seats,
     center: { x: cx, y: cy - (portrait ? h * 0.03 : h * 0.04) },
@@ -78,8 +84,9 @@ export function computeGeometry(n: number, w: number, h: number): Geometry {
 
 /** 베팅 칩 위치: 자리와 중앙 사이 */
 export function betPosition(g: Geometry, seat: Pt): Pt {
-  const t = g.portrait ? 0.36 : 0.33;
-  return { x: seat.x + (g.cx - seat.x) * t, y: seat.y + (g.cy - seat.y) * t };
+  // PC(가로)에서는 레일을 넘어 펠트 안쪽으로 확실히 나오게
+  const t = g.portrait ? 0.36 : 0.47;
+  return avoidBoard(g, { x: seat.x + (g.cx - seat.x) * t, y: seat.y + (g.cy - seat.y) * t }, 30);
 }
 
 /**
@@ -90,16 +97,24 @@ export function dealerPosition(g: Geometry, buttonIdx: number, n: number): Pt {
   return avoidBoard(g, dealerRaw(g, buttonIdx, n));
 }
 
-/** 보드 카드 영역과 겹치면 위·아래 가까운 쪽으로 밀어냄 */
-function avoidBoard(g: Geometry, p: Pt): Pt {
-  const halfW = g.sa - g.seatW / 2 - 7 + 16;
-  const boardW = ((g.sa - g.seatW / 2 - 7) * 2) / 5.35;
-  const halfH = Math.min(boardW, 96) * 0.7 + 16;
-  const cy = g.center.y;
-  if (Math.abs(p.x - g.cx) < halfW && Math.abs(p.y - cy) < halfH) {
-    return { x: p.x, y: p.y < cy ? cy - halfH : cy + halfH };
-  }
-  return p;
+/** 딜러 버튼 지름(px): 폰에서는 작게 */
+export function dealerSize(g: Geometry): number {
+  return g.portrait || Math.min(g.w, g.h) < 500 ? 18 : 24;
+}
+
+/**
+ * 보드 카드 영역(가운데 정렬, 실제 크기 기준)과 겹치면 바깥으로 밀어냄.
+ * 위·아래·옆 중 가장 조금 움직이는 쪽으로.
+ */
+function avoidBoard(g: Geometry, p: Pt, radius?: number): Pt {
+  const r = (radius ?? dealerSize(g) / 2) + 6;
+  const halfW = (5 * g.board + 4 * g.boardGap) / 2 + r;
+  const halfH = (g.board * 1.4) / 2 + r;
+  const dx = p.x - g.center.x, dy = p.y - g.center.y;
+  if (Math.abs(dx) >= halfW || Math.abs(dy) >= halfH) return p;
+  const moveY = halfH - Math.abs(dy), moveX = halfW - Math.abs(dx);
+  if (moveY <= moveX) return { x: p.x, y: g.center.y + (dy < 0 ? -halfH : halfH) };
+  return { x: g.center.x + (dx < 0 ? -halfW : halfW), y: p.y };
 }
 
 function dealerRaw(g: Geometry, buttonIdx: number, n: number): Pt {
@@ -129,5 +144,5 @@ export function tokenPosition(g: Geometry, seatIdx: number, chip: number): Pt {
   const len = Math.hypot(dx, dy) || 1;
   const rx = dx / len, ry = dy / len;
   const off = chip * 1.6 + 14;
-  return { x: bp.x - ry * off, y: bp.y + rx * off };
+  return avoidBoard(g, { x: bp.x - ry * off, y: bp.y + rx * off }, 24);
 }

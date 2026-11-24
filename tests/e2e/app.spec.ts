@@ -73,6 +73,20 @@ for (const s of sizes) {
   });
 }
 
+test('my nickname is remembered and shown at my seat', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.evaluate(() => { indexedDB.deleteDatabase('holdem-pub'); localStorage.clear(); });
+  await page.goto('/');
+  await page.getByLabel('내 닉네임').fill('테스트닉네임');
+  await expect(page.getByLabel('내 닉네임')).toHaveValue('테스트닉네'); // 최대 5글자
+  await page.reload();
+  await expect(page.getByLabel('내 닉네임')).toHaveValue('테스트닉네'); // 브라우저가 기억
+  await page.getByRole('button', { name: /토너먼트 시작/ }).click();
+  await expect(page.locator('.seat.me .nameplate .nm')).toContainText('테스트닉네');
+  await page.evaluate(() => localStorage.clear());
+});
+
 test('bet sizing: quick buttons move the slider, typed amount is bet', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await startGame(page, 6);
@@ -139,8 +153,8 @@ test('highlight → forfeit → review opens at the highlighted moment; report e
     if (await page.locator('.btn.fold.confirm').isVisible()) await page.locator('.btn.main').click();
   }
   const before = await page.evaluate(() => { const g = (window as any).__store.getState().game; return { handNo: g.t.hand.handNo, idx: g.t.hand.actions.length - 1 }; });
-  await page.getByRole('button', { name: /강조/ }).click();
-  await expect(page.getByRole('button', { name: '★ 강조됨' })).toBeVisible();
+  await page.getByRole('button', { name: '강조', exact: true }).click();
+  await expect(page.getByRole('button', { name: '강조됨', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '메뉴' }).click();
   await page.getByRole('button', { name: '게임 포기' }).click();
   await page.locator('.modal').getByRole('button', { name: '포기' }).click();

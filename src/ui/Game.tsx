@@ -98,6 +98,7 @@ export function Game() {
   const [, setTick] = useState(0);
   const [menu, setMenu] = useState(false);
   const [forfeitAsk, setForfeitAsk] = useState(false);
+  const [hudOpen, setHudOpen] = useState(false);
 
   // 레벨 타이머: 실제 시각 차이로 깎는다 (틱 횟수로 세지 않음)
   useEffect(() => {
@@ -189,17 +190,24 @@ export function Game() {
     <div className="game">
       <header className="hud">
         <button className="icon" onClick={() => { setMenu(!menu); }} aria-label="메뉴">☰</button>
+        {/* 항상 보이는 핵심 정보: 레벨·블라인드·앤티·남은 시간 */}
         <div className="lvl">
-          <div><b>Lv{lv.level}</b> {fmt(lv.sb)}/{fmt(lv.bb)}{lv.ante ? <span className="ante"> (앤티 {fmt(lv.ante)})</span> : null}</div>
-          <div className="sub">
-            {finalLevel ? '최종 레벨' : <>다음 {fmt(nextLv.sb)}/{fmt(nextLv.bb)} · <b className="clock">{mmss(g.levelRemainingMs)}</b>{g.t.pendingLevelUp > 0 ? ' (다음 핸드부터)' : ''}</>}
-          </div>
+          <b>Lv{lv.level}</b> {fmt(lv.sb)}/{fmt(lv.bb)}{lv.ante ? <span className="ante"> ({fmt(lv.ante)})</span> : null}
+          {' · '}<b className="clock">{finalLevel ? '최종' : mmss(g.levelRemainingMs)}</b>
+          {g.t.pendingLevelUp > 0 && !finalLevel ? <span className="ante"> ↑</span> : null}
         </div>
-        <div className="info">
-          <div>{alive.length}/{g.t.numSeats}명</div>
-          <div className="sub">평균 {fmt(avg)}</div>
+        {/* 가로 화면: 바로 보임 / 세로 화면: ▾ 눌러서 펼침 */}
+        <div className={'info' + (hudOpen ? ' open' : '')}>
+          <span>다음 {finalLevel ? '-' : `${fmt(nextLv.sb)}/${fmt(nextLv.bb)}`}{g.t.pendingLevelUp > 0 ? ' (다음 핸드부터)' : ''}</span>
+          <span>{alive.length}/{g.t.numSeats}명</span>
+          <span>평균 {fmt(avg)}</span>
         </div>
-        <button className={'hl' + (highlighted ? ' on' : '')} onClick={() => st.toggleHighlight()}>{highlighted ? '★ 강조됨' : '☆ 강조'}</button>
+        <button className="icon more" onClick={() => setHudOpen(!hudOpen)} aria-label={hudOpen ? '정보 접기' : '정보 펼치기'} aria-expanded={hudOpen}>{hudOpen ? '▴' : '▾'}</button>
+        <button className={'icon bookmark' + (highlighted ? ' on' : '')} onClick={() => st.toggleHighlight()} aria-label={highlighted ? '강조됨' : '강조'} aria-pressed={highlighted} title="지금 핸드 강조(북마크)">
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4.5L5 21V4a1 1 0 0 1 1-1z" fill={highlighted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+          </svg>
+        </button>
         <button className="icon" onClick={() => st.setPaused(!paused)} aria-label={paused ? '계속' : '일시정지'}>{paused ? '▶' : '❚❚'}</button>
       </header>
 

@@ -29,6 +29,11 @@ export function SettingsScreen() {
       <h1>홀덤펍 토너먼트 <span>vs AI</span></h1>
       <p className="tag">싱글 테이블 노리밋 홀덤 토너먼트 · 가상 칩만 사용</p>
       {st.hasAutosave && <button className="big primary" onClick={() => st.resume()}>이어하기</button>}
+      <div className="seg">
+        <div className="seg-label">내 닉네임 (테이블에 표시, 최대 5글자 · 이 브라우저가 기억)</div>
+        <input className="nick-input" maxLength={5} placeholder="나" value={s.myName ?? ''} aria-label="내 닉네임"
+          onChange={(e) => up({ myName: e.target.value.slice(0, 5) })} />
+      </div>
       <Seg label="테이블 인원 (나 포함)" opts={TABLE_SIZES} value={s.seats} onChange={(v) => up({ seats: v })} fmtOpt={(v) => `${v}명`} />
       <Seg label="시작 스택" opts={START_STACK_BB_OPTIONS} value={s.stackBB} onChange={(v) => up({ stackBB: v })} fmtOpt={(v) => `${fmt(v * START_STACK_MULT)} (${v}BB)`} />
       <Seg label="블라인드 레벨 시간" opts={LEVEL_MINUTES_OPTIONS} value={s.levelMinutes} onChange={(v) => up({ levelMinutes: v })} fmtOpt={(v) => `${v}분`} />
