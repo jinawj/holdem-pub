@@ -1,4 +1,5 @@
 # 프로젝트 규칙
+- **새 세션은 `docs/HANDOFF.md`부터 읽을 것** (현재 상태·명령·파일 지도·사용자 작업 방식).
 - 설계 기준 문서: docs/overview.md ('Claude Code 실행 지시' 절이 작업 방법의 기준).
 - '확인 필요' 항목은 overview 6장 기본값을 쓴다. 문서에 없는 결정은 docs/DECISIONS.md에 기록.
 - 진행 상황은 docs/PROGRESS.md에 단계별로 기록. 새 세션은 이 파일부터 읽고 이어서 작업.

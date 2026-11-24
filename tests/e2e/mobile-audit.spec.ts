@@ -53,6 +53,7 @@ async function audit(page: Page): Promise<string[]> {
     if (dealer) { const d = rect(dealer); if (ov(d, board)) p.push('D 버튼이 보드를 가림'); if (!inside(d, area)) p.push('D 버튼 잘림'); }
     document.querySelectorAll('.act-label').forEach((el, i) => {
       const r = rect(el);
+      if (r.r - r.l === 0) return; // 숨긴 말풍선
       if (!inside(r, area)) p.push(`액션 말풍선${i} 잘림`);
       // 다른 자리(특히 내 카드)를 가리면 안 됨
       const own = el.closest('.seat');
