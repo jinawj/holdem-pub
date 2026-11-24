@@ -32,7 +32,7 @@ async function checkLayout(page: Page, label: string) {
     const controls = [...document.querySelectorAll('.control-area button, .control-area .bigslider')].map(rect);
     const hud = [...document.querySelectorAll('.hud > *')].map(rect);
     const board = [...document.querySelectorAll('.center .board')].map(rect);
-    const pot = [...document.querySelectorAll('.pot .chipamt'), ...document.querySelectorAll('.dealer')].map(rect);
+    const pot = [...document.querySelectorAll('.pot .chipamt')].map(rect);
     const ov = (a: any, b: any) => Math.min(a.r, b.r) - Math.max(a.l, b.l) > 1 && Math.min(a.b, b.b) - Math.max(a.t, b.t) > 1;
     const problems: string[] = [];
     const seatBoxes = seats.map((s, i) => ({ l: Math.min(s.l, holes[i]?.l ?? s.l), t: Math.min(s.t, holes[i]?.t ?? s.t), r: Math.max(s.r, holes[i]?.r ?? s.r), b: Math.max(s.b, holes[i]?.b ?? s.b) }));
@@ -44,8 +44,6 @@ async function checkLayout(page: Page, label: string) {
       board.forEach((c) => { if (ov(a, c)) problems.push(`seat ${i} overlaps board`); });
       pot.forEach((c) => { if (ov(a, c)) problems.push(`seat ${i} overlaps pot`); });
     });
-    const dealer = [...document.querySelectorAll('.dealer')].map(rect);
-    dealer.forEach((d) => board.forEach((b) => { if (ov(d, b)) problems.push('dealer overlaps board'); }));
     controls.forEach((c, i) => { if (c.r > vw + 1 || c.b > vh + 1 || c.l < -1) problems.push(`control ${i} clipped`); });
     hud.forEach((c, i) => { if (c.r > vw + 1 || c.l < -1) problems.push(`hud ${i} clipped`); });
     return { problems, seats: seats.length };

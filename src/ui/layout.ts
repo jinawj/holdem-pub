@@ -97,24 +97,11 @@ export function betPosition(g: Geometry, seat: Pt): Pt {
 }
 
 /**
- * 딜러 버튼: 실제 테이블처럼 버튼 자리와 SB 자리(시계 방향 다음 자리) 사이, 테이블 안쪽에.
- * 버튼이 빈자리(데드 버튼)여도 그 자리 기준으로 놓는다.
- */
-export function dealerPosition(g: Geometry, buttonIdx: number, n: number): Pt {
-  return avoidBoard(g, dealerRaw(g, buttonIdx, n));
-}
-
-/** 딜러 버튼 지름(px): 폰에서는 작게 */
-export function dealerSize(g: Geometry): number {
-  return g.portrait || Math.min(g.w, g.h) < 500 ? 18 : 24;
-}
-
-/**
  * 보드 카드 영역(가운데 정렬, 실제 크기 기준)과 겹치면 바깥으로 밀어냄.
- * 위·아래·옆 중 가장 조금 움직이는 쪽으로.
+ * 위·아래·옆 중 가장 조금 움직이는 쪽으로. radius = 밀어낼 물체의 반지름(px)
  */
-function avoidBoard(g: Geometry, p: Pt, radius?: number): Pt {
-  const r = (radius ?? dealerSize(g) / 2) + 6;
+function avoidBoard(g: Geometry, p: Pt, radius: number): Pt {
+  const r = radius + 6;
   const halfW = (5 * g.board + 4 * g.boardGap) / 2 + r;
   const halfH = (g.board * 1.4) / 2 + r;
   const dx = p.x - g.center.x, dy = p.y - g.center.y;
@@ -122,34 +109,4 @@ function avoidBoard(g: Geometry, p: Pt, radius?: number): Pt {
   const moveY = halfH - Math.abs(dy), moveX = halfW - Math.abs(dx);
   if (moveY <= moveX) return { x: p.x, y: g.center.y + (dy < 0 ? -halfH : halfH) };
   return { x: g.center.x + (dx < 0 ? -halfW : halfW), y: p.y };
-}
-
-function dealerRaw(g: Geometry, buttonIdx: number, n: number): Pt {
-  const a = g.seats[buttonIdx] ?? g.seats[0];
-  const b = g.seats[(buttonIdx + 1) % n] ?? a;
-  const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-  const dx = g.cx - mid.x, dy = g.cy - mid.y;
-  const len = Math.hypot(dx, dy) || 1;
-  // 두 자리가 마주 보면(헤즈업 등) 중간점이 테이블 한가운데가 되므로: 버튼 자리 앞에서 SB 쪽으로 비켜서
-  if (len < Math.min(g.w, g.h) * 0.25) {
-    const ax = g.cx - a.x, ay = g.cy - a.y;
-    const al = Math.hypot(ax, ay) || 1;
-    let px = -ay / al, py = ax / al;
-    if ((b.x - a.x) * px + (b.y - a.y) * py < 0) { px = -px; py = -py; }
-    const off = Math.min(g.w, g.h) * 0.12 + g.seatW * 0.3;
-    return { x: a.x + ax * 0.3 + px * off, y: a.y + ay * 0.3 + py * off };
-  }
-  const pull = Math.max(len * (g.portrait ? 0.3 : 0.26), Math.min(g.w, g.h) * 0.11);
-  return { x: mid.x + (dx / len) * pull, y: mid.y + (dy / len) * pull };
-}
-
-/** 올인 토큰: 베팅 칩 바로 옆 (딜러 버튼과 반대쪽) */
-export function tokenPosition(g: Geometry, seatIdx: number, chip: number): Pt {
-  const s = g.seats[seatIdx];
-  const bp = betPosition(g, s);
-  const dx = g.cx - s.x, dy = g.cy - s.y;
-  const len = Math.hypot(dx, dy) || 1;
-  const rx = dx / len, ry = dy / len;
-  const off = chip * 1.6 + 14;
-  return avoidBoard(g, { x: bp.x - ry * off, y: bp.y + rx * off }, 24);
 }

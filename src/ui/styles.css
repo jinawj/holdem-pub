@@ -191,26 +191,8 @@ h3 { margin: 8px 0 0; }
 .hole.mucked { animation: muck 480ms ease-in forwards; }
 @keyframes muck { 0% { transform: none; opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(0.4) rotate(25deg); opacity: 0; } }
 .hole.gone { visibility: hidden; }
-/* 올인 토큰: 올인한 사람 앞 테이블 위 빨간 삼각형 (사람마다 하나씩) */
-.allin-token {
-  position: absolute; transform: translate(-50%, -50%);
-  width: 42px; height: 36px; background: linear-gradient(#ff5a5c, #c4141b);
-  clip-path: polygon(50% 0, 100% 100%, 0 100%); display: flex; align-items: flex-end; justify-content: center;
-  color: #fff; font-size: 9px; font-weight: 900; line-height: 1; padding-bottom: 4px; z-index: 4; pointer-events: none;
-  filter: drop-shadow(0 2px 3px #000a);
-}
-.allin-token.in { animation: token-in 650ms cubic-bezier(0.25, 1.3, 0.5, 1) both; }
-@keyframes token-in {
-  0% { transform: translate(calc(-50% + var(--fx)), calc(-50% + var(--fy))) scale(0.5) rotate(-40deg); opacity: 0; }
-  60% { opacity: 1; }
-  100% { transform: translate(-50%, -50%); opacity: 1; }
-}
-
 /* 핸드가 끝나면 팟은 승자 공개 순간(칩이 승자에게 날아갈 때) 사라짐 */
 .hand-over .pots { animation: hide-at 1ms linear var(--win-delay, 0ms) forwards; }
-/* 이긴 사람의 토큰은 승자 공개 때 치움 */
-.allin-token.cleared { animation: token-out 400ms ease-in var(--win-delay, 0ms) forwards; }
-@keyframes token-out { 0% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -80%) scale(0.6); } }
 /* 승자 공개 전까지 결과를 숨김: 족보 이름, 받은 뒤 스택 */
 .hand-over .hand-name { animation: show-late 300ms ease-out var(--win-delay, 0ms) both; }
 @keyframes show-late { 0% { opacity: 0; } 100% { opacity: 1; } }
@@ -256,7 +238,6 @@ h3 { margin: 8px 0 0; }
 .seat.allin-show .hole .card { outline: 3px solid #ff3b3b; outline-offset: 0; box-shadow: 0 0 14px #ff3b3b; }
 .seat.allin-show .hole { animation: pop 380ms cubic-bezier(0.3, 1.6, 0.5, 1) both; }
 
-.dealer { position: absolute; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #111; font-weight: 800; font-size: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px #000a, inset 0 0 0 2px #f5c542; z-index: 4; transition: left 0.4s, top 0.4s; }
 .bet, .flight { position: absolute; transform: translate(-50%, -50%); z-index: 2; pointer-events: none; }
 .flight { z-index: 5; }
 

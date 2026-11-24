@@ -42,7 +42,7 @@ src/game/                headless.ts(화면 없는 진행·시뮬), spot.ts(시�
 src/ui/store.ts          게임 상태·저장·액션 (zustand)
 src/ui/Game.tsx          게임 화면 + 진행 드라이버(AI 차례·대기·핸드 종료) + buildTableModel
 src/ui/Table.tsx         테이블 렌더링 + 모든 연출(딜링·플랍·칩 이동·승자). 연출 시간표 = timings()
-src/ui/layout.ts         좌석·보드·내 카드 크기·베팅칩·딜러버튼·올인토큰 위치 계산 (화면 크기 기반)
+src/ui/layout.ts         좌석·보드·내 카드 크기·베팅칩 위치 계산 (화면 크기 기반). 딜러 버튼·올인 토큰은 사용자 결정으로 삭제됨
 src/ui/Controls.tsx      베팅 조작부(25%/50%/Pot/2x, 직접 입력, 슬라이더)
 src/ui/styles.css        전체 스타일. 모바일 가로 낮은 화면은 @media (orientation: landscape) and (max-height: 500px)
 tests/                   engine/positions/ai 단위 테스트, tests/e2e(화면), tests/ai-spots/spots.json(AI 시험지)

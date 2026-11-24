@@ -1,7 +1,7 @@
 import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { CardView } from './CardView';
 import { ChipStack, fmt } from './Chips';
-import { betPosition, computeGeometry, dealerPosition, dealerSize, Geometry, Pt, tokenPosition } from './layout';
+import { betPosition, computeGeometry, Geometry, Pt } from './layout';
 
 export interface SeatModel {
   seat: number;
@@ -167,7 +167,6 @@ export function Table({ m }: { m: TableModel }) {
     }
   }, [m.street, m.handNo, m.winners, m.board.length, m.seats.map((s) => s.committed).join(','), w]);
 
-  const btnPos = dealerPosition(g, m.button, m.numSeats);
   const u = Math.min(w || 360, h || 600);
   const { vars, board: boardW, gap: boardGap } = cardVars(g);
   const potChip = Math.round(Math.max(20, Math.min(36, u * 0.06)));
@@ -215,9 +214,6 @@ export function Table({ m }: { m: TableModel }) {
       {w > 0 && m.seats.map((s) => {
         const p = g.seats[s.seat];
         const bp = betPosition(g, p);
-        const tp = tokenPosition(g, s.seat, betChip);
-        // 올인 삼각형 토큰: 올인한 사람마다 자기 앞 테이블에 하나씩 (이긴 사람은 칩을 받으면서 치움)
-        const token = s.inHand && s.allIn && !s.folded;
         return (
           <div key={s.seat}>
             {s.committed > 0 && (
@@ -227,16 +223,10 @@ export function Table({ m }: { m: TableModel }) {
                 <ChipStack amount={s.committed} size={betChip} perCol={6} cols={3} />
               </div>
             )}
-            {token && (
-              <div key={'tk' + m.handNo} className={'allin-token' + (m.animMs > 0 ? ' in' : '') + (s.winner ? ' cleared' : '')} style={{ left: tp.x, top: tp.y, ['--fx' as string]: p.x - tp.x + 'px', ['--fy' as string]: p.y - tp.y + 'px' }} aria-label="올인">
-                <span>ALL<br />IN</span>
-              </div>
-            )}
             <Seat s={s} p={p} g={g} handNo={m.handNo} anim={m.animMs > 0} deal={m.dealAnim && m.animMs > 0 ? { order: dealOrder, step: dealStep(m) } : null} />
           </div>
         );
       })}
-      {w > 0 && <div className="dealer" style={{ left: btnPos.x, top: btnPos.y, width: dealerSize(g), height: dealerSize(g), fontSize: dealerSize(g) * 0.5 }}>D</div>}
       {flights.map((f) => (
         <div key={f.id} className="flight" style={{ left: f.go ? f.to.x : f.from.x, top: f.go ? f.to.y : f.from.y, transition: `left ${T.chipFly}ms ease-in-out, top ${T.chipFly}ms ease-in-out, opacity ${T.chipFly}ms`, opacity: f.go ? 0.75 : 1 }}>
           <ChipStack amount={f.amount} size={betChip} perCol={5} cols={3} />

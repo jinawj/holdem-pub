@@ -27,13 +27,6 @@ for (const n of [2, 3, 4]) {
       await page.screenshot({ path: `reports/screens/allin-${n}p-${vp.name}-runout.png` });
       await page.waitForTimeout(4900);
       await page.screenshot({ path: `reports/screens/allin-${n}p-${vp.name}-showdown.png` });
-      // D 버튼이 보드 카드를 가리지 않음
-      const ov = await page.evaluate(() => {
-        const d = document.querySelector('.dealer')!.getBoundingClientRect();
-        const b = document.querySelector('.center .board')!.getBoundingClientRect();
-        return Math.min(d.right, b.right) - Math.max(d.left, b.left) > 1 && Math.min(d.bottom, b.bottom) - Math.max(d.top, b.top) > 1;
-      });
-      expect(ov).toBe(false);
       const shown = await page.locator('.seat.allin-show').count();
       expect(shown).toBe(n);
       expect(errors).toEqual([]);

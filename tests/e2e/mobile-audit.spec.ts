@@ -38,7 +38,6 @@ async function audit(page: Page): Promise<string[]> {
     const board = rect(document.querySelector('.center .board')!);
     const controls = [...document.querySelectorAll('.control-area button, .control-area input, .control-area .bigslider')].map(rect);
     const hud = [...document.querySelectorAll('.hud > :not(.info)')].map(rect);
-    const dealer = document.querySelector('.dealer');
     const pot = [...document.querySelectorAll('.pot .chipamt')].map(rect);
     seats.forEach((s, i) => {
       if (!inside(s.box, area)) p.push(`자리${i} 테이블 영역 밖으로 잘림`);
@@ -50,7 +49,6 @@ async function audit(page: Page): Promise<string[]> {
       if (nm && nm.scrollWidth > nm.clientWidth + 1) p.push(`자리${i} 이름 잘림`);
     });
     if (!inside(board, area)) p.push('보드가 테이블 영역 밖');
-    if (dealer) { const d = rect(dealer); if (ov(d, board)) p.push('D 버튼이 보드를 가림'); if (!inside(d, area)) p.push('D 버튼 잘림'); }
     document.querySelectorAll('.act-label').forEach((el, i) => {
       const r = rect(el);
       if (r.r - r.l === 0) return; // 숨긴 말풍선
@@ -112,12 +110,6 @@ for (const s of [SIZES[0], SIZES[3], SIZES[6], SIZES[9]]) {
       const vw = innerWidth, vh = innerHeight;
       const p: string[] = [];
       document.querySelectorAll('.win-banner').forEach((el) => { const r = el.getBoundingClientRect(); if (r.left < -1 || r.right > vw + 1 || r.top < -1) p.push('WIN 배너 잘림'); });
-      const board = document.querySelector('.center .board')!.getBoundingClientRect();
-      document.querySelectorAll('.allin-token').forEach((el, i) => {
-        const r = el.getBoundingClientRect();
-        if (Math.min(r.right, board.right) - Math.max(r.left, board.left) > 1 && Math.min(r.bottom, board.bottom) - Math.max(r.top, board.top) > 1) p.push(`올인 토큰${i}이 보드를 가림`);
-        if (r.left < 0 || r.right > vw || r.bottom > vh) p.push(`올인 토큰${i} 잘림`);
-      });
       document.querySelectorAll('.hand-name').forEach((el, i) => { const r = el.getBoundingClientRect(); if (r.left < 0 || r.right > vw || r.bottom > vh) p.push(`족보 이름${i} 잘림`); });
       return p;
     });
