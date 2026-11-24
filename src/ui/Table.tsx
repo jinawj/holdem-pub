@@ -294,8 +294,12 @@ function Seat({ s, p, g, handNo, deal, anim, isButton }: { s: SeatModel; p: Pt; 
   // 상대가 폴드하면 카드가 가운데로 버려짐 (내 카드는 흐리게 남김)
   const muck = s.folded && !s.isMe && !s.faceUp;
   // 화면 아래쪽 자리는 말풍선·족보 이름을 이름표 아래가 아니라 옆(테이블 중앙 쪽)에 → 잘리지 않게
-  // 내 자리: 이름표 왼쪽 / 다른 아래쪽 자리: 자기 카드 뒷면 위에 겹쳐 (옆 자리·내 카드를 가리지 않게)
-  const sideFix = s.isMe ? ' tag-left' : p.y > g.h * 0.72 ? ' tag-over' : '';
+  // 말풍선 위치: 이름표 아래에 공간이 있으면 그냥 아래(기본).
+  // 공간이 없을 때만 — 내 자리: 이름표 왼쪽 / 다른 자리: 자기 카드 뒷면 위에 겹쳐서
+  const cardW = s.isMe ? g.mine : Math.round(Math.max(16, Math.min(g.portrait ? Math.min(g.mine * 0.45, g.w * 0.06) : g.mine * 0.62, 44)));
+  const seatH = cardW * 1.4 + 40; // 카드 + 이름표 (대략)
+  const roomBelow = p.y + seatH / 2 + 24 <= g.h - 2;
+  const sideFix = roomBelow ? '' : s.isMe ? ' tag-left' : ' tag-over';
   return (
     <div className={'seat' + sideFix + (s.isActor ? ' actor' : '') + (s.folded ? ' folded' : '') + (s.winner ? ' winner' : '') + (s.lost ? ' lost' : '') + (s.isMe ? ' me' : '') + (s.allInShow ? ' allin-show' : '')} style={{ left: p.x, top: p.y }}>
       {s.winner && s.won ? (
