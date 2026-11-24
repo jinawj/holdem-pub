@@ -1,0 +1,8 @@
+[
+  { "value": 100000, "color": "#111111", "edge": "#d4af37", "text": "#d4af37" },
+  { "value": 25000, "color": "#1e8f4e", "edge": "#ffffff", "text": "#ffffff" },
+  { "value": 5000, "color": "#c0392b", "edge": "#ffffff", "text": "#ffffff" },
+  { "value": 1000, "color": "#f1c40f", "edge": "#7a5c00", "text": "#3b2b00" },
+  { "value": 500, "color": "#8e44ad", "edge": "#ffffff", "text": "#ffffff" },
+  { "value": 100, "color": "#f4f4f4", "edge": "#2c3e50", "text": "#2c3e50" }
+]

@@ -1,0 +1,83 @@
+{
+  "solver": {
+    "name": "솔버", "style": "GTO봇", "fish": false, "lv": [9, 10],
+    "loose": 1.0, "aggression": 0.0, "bluffMult": 1.0, "cbetFreq": 0.0, "stickiness": 0.0, "foldToAggro": 0.0,
+    "limpFreq": 0.0, "sizing": "standard", "evWeight": 0.15, "tiltProne": 0.0, "moodRange": 0.0, "recall": 0.0,
+    "showdownStyle": "quiet",
+    "habits": [],
+    "targets": { "vpip": [22, 25], "pfr": [18, 21], "af": [2.0, 3.5] }
+  },
+  "reg": {
+    "name": "레귤러", "style": "TAG", "fish": false, "lv": [4, 10],
+    "loose": 0.95, "aggression": 0.3, "bluffMult": 0.9, "cbetFreq": 0.1, "stickiness": 0.0, "foldToAggro": 0.1,
+    "limpFreq": 0.0, "sizing": "standard", "evWeight": 0.3, "tiltProne": 0.2, "moodRange": 0.2, "recall": 0.3,
+    "showdownStyle": "quiet",
+    "habits": [
+      { "id": "dryCbetThird", "adherence": 0.85 },
+      { "id": "riverBigBetFold", "adherence": 0.75 },
+      { "id": "threeBetStrongOrA5s", "adherence": 0.85 }
+    ],
+    "targets": { "vpip": [20, 24], "pfr": [17, 20], "af": [2.0, 4.0] }
+  },
+  "lag": {
+    "name": "공격수", "style": "LAG", "fish": false, "lv": [4, 10],
+    "loose": 1.15, "aggression": 0.5, "bluffMult": 1.4, "cbetFreq": 0.2, "stickiness": 0.1, "foldToAggro": -0.05,
+    "limpFreq": 0.0, "sizing": "standard", "evWeight": 0.35, "tiltProne": 0.4, "moodRange": 0.4, "recall": 0.5,
+    "showdownStyle": "sometimes",
+    "habits": [
+      { "id": "wideLatePosition", "adherence": 0.85 },
+      { "id": "stabWhenChecked", "adherence": 0.7 },
+      { "id": "drawSemiBluff", "adherence": 0.85 }
+    ],
+    "targets": { "vpip": [28, 35], "pfr": [24, 30], "af": [3.0, 5.0] }
+  },
+  "station": {
+    "name": "끝까지 간다", "style": "콜링스테이션", "fish": true, "lv": [1, 4],
+    "loose": 1.5, "aggression": -0.7, "bluffMult": 0.25, "cbetFreq": -0.3, "stickiness": 0.6, "foldToAggro": -0.4,
+    "limpFreq": 0.85, "sizing": "small", "evWeight": 0.35, "tiltProne": 0.4, "moodRange": 0.5, "recall": 0.6,
+    "showdownStyle": "shows",
+    "habits": [
+      { "id": "pairCallsDown", "adherence": 0.85 },
+      { "id": "raiseOnlyStrong", "adherence": 0.9 },
+      { "id": "noBluff", "adherence": 0.9 }
+    ],
+    "targets": { "vpip": [40, 55], "pfr": [5, 10], "af": [0.4, 1.0] }
+  },
+  "nit": {
+    "name": "바위", "style": "니트", "fish": false, "lv": [3, 7],
+    "loose": 0.38, "aggression": 0.05, "bluffMult": 0.3, "cbetFreq": -0.1, "stickiness": -0.1, "foldToAggro": 0.45,
+    "limpFreq": 0.0, "sizing": "standard", "evWeight": 0.3, "tiltProne": 0.2, "moodRange": 0.3, "recall": 0.4,
+    "showdownStyle": "quiet",
+    "habits": [
+      { "id": "foldTo3betUnlessPremium", "adherence": 0.85 },
+      { "id": "bigPotNeedsSet", "adherence": 0.8 },
+      { "id": "noBluff", "adherence": 0.85 }
+    ],
+    "targets": { "vpip": [10, 14], "pfr": [8, 12], "af": [1.5, 3.0] }
+  },
+  "maniac": {
+    "name": "올인맨", "style": "매니악", "fish": true, "lv": [2, 5],
+    "loose": 2.3, "aggression": 1.1, "bluffMult": 3.0, "cbetFreq": 0.35, "stickiness": 0.2, "foldToAggro": -0.3,
+    "limpFreq": 0.1, "sizing": "overbet", "evWeight": 0.4, "tiltProne": 0.8, "moodRange": 0.8, "recall": 0.7,
+    "showdownStyle": "showsBluffs",
+    "habits": [
+      { "id": "overbet", "adherence": 0.6 },
+      { "id": "bluffAgainAfterCaught", "adherence": 0.7 },
+      { "id": "stackPressure", "adherence": 0.6 }
+    ],
+    "targets": { "vpip": [55, 70], "pfr": [40, 55], "af": [4.0, 8.0] }
+  },
+  "beginner": {
+    "name": "입문자", "style": "초보", "fish": true, "lv": [1, 3],
+    "loose": 1.15, "aggression": -0.65, "bluffMult": 0.5, "cbetFreq": -0.2, "stickiness": 0.4, "foldToAggro": 0.0,
+    "limpFreq": 0.9, "sizing": "strengthTell", "evWeight": 0.35, "tiltProne": 0.7, "moodRange": 0.8, "recall": 0.7,
+    "showdownStyle": "showsWins",
+    "habits": [
+      { "id": "limpAnyAce", "adherence": 0.85 },
+      { "id": "chaseDraws", "adherence": 0.85 },
+      { "id": "slowplayMonster", "adherence": 0.6 },
+      { "id": "sizeEqualsStrength", "adherence": 0.85 }
+    ],
+    "targets": { "vpip": [35, 45], "pfr": [8, 12], "af": [0.6, 1.5] }
+  }
+}

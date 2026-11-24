@@ -1,0 +1,14 @@
+# 설치 파일·빌드 결과 (GitHub에서 자동으로 다시 만듦)
+node_modules/
+dist/
+*.zip
+
+# 테스트·시뮬레이션 결과물
+reports/
+test-results/
+playwright-report/
+
+# 개인 설정
+.claude/settings.local.json
+.DS_Store
+Thumbs.db

@@ -1,0 +1,12 @@
+# 프로젝트 규칙
+- 설계 기준 문서: docs/overview.md ('Claude Code 실행 지시' 절이 작업 방법의 기준).
+- '확인 필요' 항목은 overview 6장 기본값을 쓴다. 문서에 없는 결정은 docs/DECISIONS.md에 기록.
+- 진행 상황은 docs/PROGRESS.md에 단계별로 기록. 새 세션은 이 파일부터 읽고 이어서 작업.
+- 튜닝용 숫자는 src/data 또는 src/config.ts 한 곳에 모은다.
+- src/engine 은 React·브라우저 API에 의존 금지 (순수 TypeScript).
+- AI는 PlayerView만 받는다. engine 내부 상태 import 금지.
+- 엔진 규칙을 바꾸면 해당 단위 테스트를 먼저 추가·수정.
+- 화면을 바꾸면 Playwright 스크린샷(폭 360px 세로 + 10인 포함)으로 겹침이 없는지 확인.
+- AI를 바꾸면 npm run ai:spots 통과 + npm run ai:match에서 이전 버전보다 나빠지지 않았는지 확인. 퇴보면 되돌리거나 원인 기록.
+- 노력 배분: AI·AI 평가 > 엔진 정확성 > UI 꾸미기.
+- 명령어: npm run dev / npm test / npm run e2e / npm run sim / npm run ai:spots / npm run ai:match
