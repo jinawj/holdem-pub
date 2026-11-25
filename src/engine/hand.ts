@@ -274,7 +274,8 @@ function showdown(s: HandState) {
     showOrder = [...showOrder.slice(i), ...showOrder.slice(0, i)];
   }
   let shown: number[];
-  if (s.allInRunout) shown = [...showOrder];
+  // 올인이 걸린 쇼다운(런아웃이든 리버 올인·콜이든)은 머크 불가: 모두 공개
+  if (s.allInRunout || live.some((p) => p.allIn)) shown = [...showOrder];
   else {
     shown = [];
     let bestShown = -1;

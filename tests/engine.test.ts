@@ -168,6 +168,22 @@ describe('split pot', () => {
   });
 });
 
+describe('all-in showdown reveals every hand (no muck)', () => {
+  it('river all-in and call: loser cannot muck', () => {
+    // 헤즈업, 리버까지 체크 → 리버에서 올인·콜 (런아웃 없음)
+    const h = mkHand({ stacks: [10000, 10000], button: 0, holes: { 0: 'AhAd', 1: '7c2d' }, board: 'KsQs3h8c4d' });
+    applyMove(h, { type: 'call' }); applyMove(h, { type: 'check' });
+    for (let i = 0; i < 4; i++) applyMove(h, { type: 'check' });
+    expect(h.street).toBe('river');
+    applyMove(h, { type: 'check' }); // 7-2 체크
+    applyMove(h, { type: 'raise', to: legalActions(h)!.maxRaiseTo }); // AA 올인
+    applyMove(h, { type: 'call' }); // 7-2 콜 → 지는 쪽이지만 머크 불가
+    expect(h.street).toBe('done');
+    expect(h.allInRunout).toBe(false);
+    expect(h.result!.shown.sort()).toEqual([0, 1]);
+  });
+});
+
 describe('heads-up blinds', () => {
   it('button posts SB, acts first preflop and last postflop', () => {
     const h = mkHand({ stacks: [10000, 10000], button: 0 });
