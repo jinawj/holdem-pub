@@ -29,13 +29,15 @@ export function humanizeSize(to: number, ctx: Ctx, prof: AiProfile, rand: () => 
   const leakMin = prof.leaks.find((l) => l.id === 'minRaise');
   if ((leakMin && rand() < leakMin.adherence * 0.5) || rand() < fx.sizingMistake * 0.4) t = L.minRaiseTo;
   else if (rand() < fx.sizingMistake) t = t * (0.6 + rand() * 0.9);
+  // v2: 같은 크기가 기계적으로 반복되지 않게 포스트플랍 벳은 ±12% 정도 흔들기 (사람은 매번 정확히 같은 비율로 안 냄)
+  else if (ctx.street !== 'preflop' && !(prof.tells ?? []).length) t = L.committed + (t - L.committed) * (0.88 + rand() * 0.24);
   const unit = t < 2000 ? 100 : t < 10000 ? 500 : t < 50000 ? 1000 : 5000;
   t = Math.round(t / unit) * unit;
   if (t < L.minRaiseTo) t = L.minRaiseTo;
   if (t > L.maxRaiseTo || L.maxRaiseTo - t < unit) t = L.maxRaiseTo;
   // v2: 포스트플랍 벳(받은 벳 없음)은 팟의 20% 이상 — 셋·풀하우스로 1BB 벳 같은 어색한 크기 방지
   if (ctx.street !== 'preflop' && L.currentBet === 0 && t < L.maxRaiseTo) {
-    const floor = Math.ceil((0.2 * ctx.pot) / unit) * unit;
+    const floor = Math.ceil(((0.22 + rand() * 0.1) * ctx.pot) / unit) * unit;
     if (t < floor) t = Math.min(L.maxRaiseTo, Math.max(L.minRaiseTo, floor));
   }
   return t;

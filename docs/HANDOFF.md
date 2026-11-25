@@ -63,6 +63,17 @@ scripts/                 sim, ai-spots, ai-match, ai-cli, generate-hand-rank, ge
 - **남은 AI 문제**: 피쉬 구간(Lv1–3)에서 끝까지 간다 Lv1이 Lv3보다 덜 짐(역전). 바위 Lv3→5 차이 유의하지 않음. 멀티웨이 푸시 범위는 근사(콜러 1명 가정).
 - 상대 착취(사람 분석)는 **하지 않기로 결정**. 쇼다운 기억 반응만 있음(설정에서 끌 수 있음).
 
+## 6-1. AI v2 (2026-11-25~, 진행 중) — "사람의 포커적 사고" 모방
+- 앱·스크립트는 `src/ai/v2` 사용. `src/ai/v1`은 비교 기준선으로 고정(수정 금지).
+- v2 핵심: `v2/read.ts`(사람식 상황 읽기: 패 분류·주도권·레이저 앞·무서운 카드·벳 크기) → `v2/postflop.ts`의 `planBet`/`planDefense`(계획 기반), EV 계산은 보조(비중 절반). 프리플랍은 깊이·`playablePct`(플레이어빌리티)·BB 가격 방어.
+- 화면 없는 AI 점검 도구:
+  - `npx tsx scripts/ai-match.ts --pairs 3000 --version` : v2 vs v1 (퇴보 확인)
+  - `npx tsx scripts/ai-postflop-report.ts --hands 3000 [--v 1]` : C벳·동크·C벳 폴드·리버 큰 벳 콜률
+  - `npx tsx scripts/ai-preflop-report.ts --stack 200 [--v 1]` : 상황별 프리플랍 참여율
+  - `npx tsx scripts/ai-review.ts --hands 50 --stack 200 --seed N --out reports/x.md` : AI 생각이 붙은 핸드 기록
+- 리뷰 루프: review 로그를 `researcher` 에이전트(Sonnet)에게 읽혀 "사람 같은가" 판정 → 규칙 수정 → 위 도구로 측정 → 커밋. 기록은 PROGRESS.md 'AI v2' 절.
+- 주의: Bash에서 `node -e "..."` 안에 백틱을 넣으면 명령으로 실행됨 → 문서 수정은 Edit 도구로.
+
 ## 7. 다음 할 일 후보
 1. 피쉬 레벨 역전 원인 분석(끝까지 간다 Lv1 vs Lv3) — 습관·릭 조합별로 공통 상대 대결
 2. 난이도 체감 측정: "적당히 잘 치는 봇"을 내 자리에 앉혀 난이도별 우승률 측정 → 필요하면 '쉬움' 추가

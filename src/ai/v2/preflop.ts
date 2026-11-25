@@ -144,11 +144,15 @@ export function preflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: ()
     if (limpers > 0) o *= 0.55;
     const prBase = sig((o - pct) / w);
     // 수동적인 성향은 레이즈 대신 림프
-    const pr = aggr < 0 ? prBase * Math.max(0.15, 1 + aggr) : prBase;
+    let pr = aggr < 0 ? prBase * Math.max(0.15, 1 + aggr) : prBase;
+    // 수동적인 사람도 AA·KK·QQ·AK 같은 프리미엄은 대부분 레이즈
+    if (pct < 3.5) pr = Math.max(pr, 0.75);
     const playPct = Math.min(60, openPctFor(ctx.behind) * loose * 1.5 + 8);
     let pl = p.limpFreq * sig((playPct - pct) / w) * (1 - pr);
     // 림퍼 뒤 오버림프 (림프 성향 아니어도 스몰페어·수딧커넥터)
     if (limpers > 0 && p.limpFreq < 0.3) pl = Math.max(pl, 0.35 * sig((o * 2 - pct) / w) * (1 - pr));
+    // 림프팟 SB: 반 블라인드만 더 내면 되는 싼 가격 → 쓰레기 패 아니면 대부분 컴플리트
+    if (limpers > 0 && ctx.view.mySeat === ctx.view.sbSeat) pl = Math.max(pl, 0.85 * sig((70 - pct) / w) * (1 - pr));
     const deep = ctx.effBB > 100 ? 0.3 : ctx.effBB > 40 ? 0.2 : 0;
     const size = (ctx.behind === 1 ? 3 : 2.2 + deep + limpers) * bb;
     return {

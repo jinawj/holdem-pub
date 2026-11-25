@@ -22,7 +22,7 @@ export interface Read {
   polarBet: boolean; // 받은 벳이 큼 (팟의 75% 이상) → 강하거나 블러프
 }
 
-export function readHand(ctx: Ctx, eq: number | undefined): Read {
+export function readHand(ctx: Ctx, eq: number | undefined, level = 6): Read {
   const v = ctx.view;
   const [h1, h2] = v.holeCards;
   const board = v.board;
@@ -61,7 +61,8 @@ export function readHand(ctx: Ctx, eq: number | undefined): Read {
   if ((cls === 'air' || cls === 'weak') && strongDraw) { cls = 'draw'; desc += ctx.flushDraw ? ' + 플러시 드로우' : ' + 양방향 드로우'; }
 
   // 보드가 무서워졌는지: 에퀴티로 한 단계 보정 (사람이 "플러시 완성됐네" 하고 패를 낮춰 보는 것)
-  if (eq !== undefined && cls !== 'draw') {
+  // 보드가 무서워진 걸 알아채는 건 실력: Lv1–3은 탑페어를 과대평가(사람다운 실수), Lv4 이상만 패를 낮춰 봄
+  if (eq !== undefined && cls !== 'draw' && level >= 4) {
     const i = ORDER.indexOf(cls);
     if (eq < 0.22 && i >= 3) { cls = ORDER[i - 1]; desc += ' (보드 위험)'; }
     else if (eq > 0.88 && i < 5 && i >= 3) { cls = ORDER[i + 1]; desc += ' (거의 확실)'; }

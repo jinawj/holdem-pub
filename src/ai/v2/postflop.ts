@@ -35,7 +35,7 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
   const eqRes = equityVsRanges(ctx.view.holeCards, ctx.view.board, ranges, samples, rand);
   const eq = eqRes.eq;
   // 사람식 상황 읽기 (내 패 분류·주도권·보드·벳 크기)
-  const rd = readHand(ctx, eq);
+  const rd = readHand(ctx, eq, prof.level);
   let thought = '';
   let planBetP: number | undefined;
   const n = ctx.numOpp;
@@ -73,7 +73,7 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
     options.push(...betOpts);
 
     // ---- 사람식 계획: "내 패 + 주도권 + 보드" 로 벳할지 정함 (v2) ----
-    const pBet = planBet(rd, ctx, p, aggr, n);
+    const pBet = planBet(rd, ctx, p, aggr, n, prof.level);
     planBetP = pBet;
     thought = `${rd.desc} · ${rd.facingAggressorFirst ? '레이저 앞이라 체크 위주' : rd.initiative ? '주도권 있음' : '주도권 없음'}${rd.scareCard ? ' · 무서운 카드' : ''} → 벳 ${Math.round(pBet * 100)}%`;
     base.push(1 - pBet);
@@ -127,7 +127,8 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
   const evDist = ex.map((x) => x / es);
   const bsum = base.reduce((a, b) => a + b, 0) || 1;
   // 계산(EV)은 보조: 사람식 판단 비중을 높여 수학적 편향을 줄임
-  const w = clamp(p.evWeight * 0.5, 0, 1);
+  // 실력이 높을수록 레인지·계산을 더 믿음 (Lv1 약 15% → Lv10 약 50%), 낮을수록 감·습관 위주
+  const w = clamp(p.evWeight * 0.5 + (prof.level - 1) * 0.04, 0, 0.7);
   const probs = base.map((b, i) => (b / bsum) * (1 - w) + evDist[i] * w);
   return {
     options, probs, equity: eq, eqRes, base: base.map((b) => b / bsum), evDist, read: rd, planBetP,
@@ -136,14 +137,16 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
 }
 
 /** 벳을 안 받았을 때 벳할 확률: 사람의 계획 (밸류·보호·C벳·배럴·찔러보기·블러프) */
-function planBet(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, n: number): number {
+function planBet(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, n: number, level: number): number {
+  const skilled = level >= 7, mid = level >= 5;
   const S = ctx.street, HU = n === 1;
   const dry = ctx.wet < 0.3, wet = ctx.wet > 0.55;
   const c = rd.cls;
   let pb: number;
   if (rd.facingAggressorFirst) {
     // 레이저 앞에서는 체크가 기본 (동크 거의 안 함). 아주 강하거나 웻 보드 보호만 가끔
-    pb = c === 'monster' ? 0.12 : c === 'strong' && wet ? 0.1 : 0.03;
+    // 리버 몬스터는 슬로플레이하지 않고 먼저 벳 (상대가 체크백하면 밸류를 잃으므로)
+    pb = c === 'monster' ? (S === 'river' ? 0.6 : 0.12) : c === 'strong' && wet ? 0.1 : 0.03;
   } else if (rd.initiative) {
     if (S === 'flop') {
       // C벳: 드라이 보드는 레인지 전체로 자주, 웻 보드는 덜, 멀티웨이는 확 줄임
@@ -151,15 +154,19 @@ function planBet(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, n: number)
       pb = ({ monster: dry ? 0.7 : 0.9, strong: 0.88, medium: HU ? cbet : 0.35, weak: cbet * 0.85, draw: 0.75, air: cbet * (rd.backdoor ? 1 : 0.8) } as const)[c];
     } else if (S === 'turn') {
       // 배럴: 밸류·드로우는 계속, 블러프는 무서운 카드가 떨어졌을 때
-      pb = ({ monster: 0.85, strong: 0.75, medium: 0.35, weak: rd.scareCard ? 0.4 : 0.15, draw: 0.62, air: rd.scareCard ? 0.45 : 0.2 } as const)[c];
+      // 무서운 카드를 블러프 기회로 쓰는 건 중간 레벨 이상, 낮은 레벨은 아무 때나 비슷하게
+      const scare = mid ? rd.scareCard : false;
+      pb = ({ monster: 0.85, strong: 0.75, medium: 0.35, weak: mid ? (scare ? 0.4 : 0.15) : 0.22, draw: 0.62, air: mid ? (scare ? 0.45 : 0.2) : 0.28 } as const)[c];
     } else {
       // 리버: 밸류는 얇게라도, 블러프는 블로커 있을 때 위주, 쇼다운 가치 있으면 체크
-      pb = ({ monster: 0.88, strong: 0.7, medium: 0.25, weak: 0.08, draw: rd.blocker ? 0.5 : 0.3, air: rd.blocker ? 0.55 : 0.3 } as const)[c];
+      // 얇은 밸류(중간 패 리버 벳)·블로커 블러프는 실력: 고수는 얇게 벳하고 블로커로 블러프, 하수는 중간 패 체크·블러프 아무거나
+      const thinValue = 0.12 + 0.04 * level;
+      pb = ({ monster: 0.93, strong: 0.7, medium: thinValue, weak: 0.08, draw: skilled ? (rd.blocker ? 0.5 : 0.2) : 0.3, air: skilled ? (rd.blocker ? 0.6 : 0.2) : 0.3 } as const)[c];
     }
   } else {
     // 주도권 없음 + 상대가 체크(또는 마지막 행동): 밸류는 벳, 약하면 가끔 찔러보기
     const stab = ctx.checkedToMe && HU;
-    pb = ({ monster: 0.72, strong: 0.7, medium: stab ? 0.35 : 0.15, weak: stab ? 0.3 : 0.05, draw: 0.5, air: stab ? (S === 'river' ? (rd.blocker ? 0.4 : 0.25) : 0.32) : 0.05 } as const)[c];
+    pb = ({ monster: S === 'river' ? 0.9 : 0.72, strong: 0.7, medium: stab ? 0.35 : 0.15, weak: stab ? 0.3 : 0.05, draw: 0.5, air: stab ? (S === 'river' ? (rd.blocker ? 0.4 : 0.25) : 0.32) : 0.05 } as const)[c];
   }
   const bluffy = c === 'weak' || c === 'air' || c === 'draw';
   if (bluffy) pb *= HU ? 1 : rd.initiative && S === 'flop' && dry ? 0.8 : 0.5;
@@ -197,6 +204,21 @@ function planDefense(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, level:
     const hero = level >= 9 ? (c === 'medium' ? 0.7 : rd.blocker ? 0.45 : 0.25) : level >= 7 ? (c === 'medium' ? 0.6 : rd.blocker ? 0.3 : 0.12) : 0;
     if (hero > cont) { cont = hero; why = '큰 벳이지만 블러프도 있다고 보고 히어로콜'; }
   }
+  // 3명 이상 팟: 에어 플로트는 하지 않음 (헤즈업에서만 띄워 봄)
+  if (c === 'air' && ctx.numOpp >= 2) { cont = Math.min(cont, 0.03); raise = Math.min(raise, 0.02); }
+  // 내가 벳했는데 레이즈(체크레이즈)를 받음: 상대 레인지가 강해짐 → 몬스터 아니면 재레이즈 안 하고, 탑페어·세컨드는 신중하게
+  const iBetThisStreet = ctx.view.actionLog.some((a) => a.street === ctx.street && a.seat === ctx.view.mySeat && (a.type === 'bet' || a.type === 'raise'));
+  // 레이즈를 받으면 멈추는 것도 실력: Lv1–3은 탑페어로 계속 밀어붙임(사람다운 실수), 중간은 반쯤, 고수는 확실히
+  if (iBetThisStreet && c !== 'monster' && level >= 4) {
+    raise = 0;
+    if (c === 'strong') cont = Math.min(cont, 0.75);
+    if (c === 'medium') cont = Math.min(cont, 0.3);
+    if (c === 'weak' || c === 'air') cont = Math.min(cont, 0.08);
+    why = '레이즈를 받음: 상대가 강해 보여 신중하게';
+  }
+  // 콜하면 거의 올인: 몬스터가 아니면 계산상 여유(필요 승률 +10%p)가 있을 때만
+  const L = ctx.view.legal;
+  if (c !== 'monster' && ctx.toCall >= 0.6 * (L.stack) && eq < ctx.potOdds + 0.1) { cont *= 0.5; why = '올인급 콜이라 확실할 때만'; }
   // 가격이 아주 좋으면 (필요 승률 20% 미만) 웬만하면 콜
   if (ctx.potOdds < 0.2 && c !== 'air') cont = Math.max(cont, 0.8);
   // 계산이 '이건 진짜 아니다'라고 할 때만 브레이크 (보드 위험은 read에서 이미 반영)
