@@ -63,6 +63,27 @@ export function gear(ctx: Ctx, prof: AiProfile): { openMult: number; pushShift: 
   return { openMult, pushShift, note: notes.length ? ' · ' + notes.join(', ') : '' };
 }
 
+/**
+ * 깊이에 따른 "치기 좋은 정도": 올인 에퀴티 순위(pct)는 스몰 페어·수딧 커넥터를 낮게 평가함.
+ * 사람은 깊은 스택에서 이런 패를 셋·스트레이트·플러시 노리고 콜함 → 순위를 앞당김. 약한 오프수트는 도미네이트 위험으로 뒤로.
+ */
+export function playablePct(key: string, pct: number, effBB: number): number {
+  const deepF = Math.max(0, Math.min(1, (effBB - 40) / 100));
+  if (deepF <= 0) return pct;
+  const R = 'AKQJT98765432';
+  const r1 = R.indexOf(key[0]), r2 = R.indexOf(key[1]);
+  const suited = key[2] === 's', pair = key.length === 2;
+  const gap = r2 - r1; // 0 = 페어, 1 = 커넥터
+  let bonus = 0, penalty = 0;
+  if (pair && r1 >= R.indexOf('9')) bonus = 9; // 22~99
+  else if (suited && gap === 1 && r1 >= R.indexOf('J') && r2 <= R.indexOf('4')) bonus = 10; // JTs~54s
+  else if (suited && gap === 2 && r1 >= R.indexOf('J')) bonus = 6; // 수딧 원갭
+  else if (suited && key[0] === 'A') bonus = 6; // 수딧 A
+  else if (suited && key[0] === 'K') bonus = 3;
+  if (!suited && !pair && (key[0] === 'A' ? r2 >= R.indexOf('9') : r1 <= R.indexOf('Q') && r2 >= R.indexOf('9'))) penalty = 6; // A9o 이하, KTo·QTo·JTo류
+  return Math.max(0.5, pct - deepF * bonus + deepF * penalty);
+}
+
 export function preflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: () => number, quick: boolean): PolicyOut {
   const L = ctx.view.legal;
   const p = prof.p;
@@ -116,7 +137,9 @@ export function preflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: ()
       const size = (3 + limpers) * bb;
       return { options: [raise(size), check], probs: [pr, 1 - pr], note: `림프팟 BB, 레이즈 범위 ${iso.toFixed(0)}%` };
     }
-    let o = openPctFor(ctx.behind) * loose * gear(ctx, prof).openMult;
+    // 깊은 스택(100BB 넘음)일수록 뒤쪽 포지션 오픈을 넓힘
+    const deepOpen = ctx.effBB > 100 && ctx.behind <= 3 ? 1.15 : ctx.effBB > 60 && ctx.behind <= 3 ? 1.07 : 1;
+    let o = openPctFor(ctx.behind) * loose * gear(ctx, prof).openMult * deepOpen;
     if (limpers > 0) o *= 0.55;
     const prBase = sig((o - pct) / w);
     // 수동적인 성향은 레이즈 대신 림프
@@ -144,13 +167,18 @@ export function preflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: ()
     if (coldCallers > 0) v *= 0.8;
     const isBB = ctx.view.mySeat === ctx.view.bbSeat;
     const isSB = ctx.view.mySeat === ctx.view.sbSeat;
-    const ipMult = isBB ? 1.35 : isSB ? 0.45 : ctx.behind <= 2 ? 1.1 : 0.9;
+    // BB는 이미 낸 블라인드 덕에 싸게 콜 → 콜 가격이 쌀수록 넓게 방어. 깊으면 인포지션 콜드콜도 넓게 (셋·수딧 커넥터 노림)
+    const need = ctx.toCall / Math.max(1, ctx.pot + ctx.toCall);
+    const deep = Math.max(0, Math.min(1, (ctx.effBB - 40) / 100));
+    const ipMult = isBB ? Math.max(1.35, Math.min(2.3, 0.33 / Math.max(0.05, need))) : isSB ? 0.45 : ctx.behind <= 2 ? 1.1 + 0.3 * deep : 0.9 + 0.2 * deep;
     const band = AI.callRatio * o * ipMult * loose * (1 + p.stickiness * 0.5) * (1 - Math.max(0, aggr) * 0.2);
     let p3 = sig((v - pct) / w);
     if (ctx.effBB > 40 && isBluffCandidate(ctx.key)) p3 = p3 + (1 - p3) * 0.3 * p.bluffMult;
     if (aggr < 0) p3 *= Math.max(0.2, 1 + aggr * 0.8);
     p3 = Math.min(1, p3);
-    const pc = Math.max(0, sig((v + band - pct) / w) - p3);
+    // 콜은 "깊은 스택에서 치기 좋은 패"를 더 쳐 줌 (스몰 페어·수딧 커넥터·수딧 A)
+    const cpct = playablePct(ctx.key, pct, ctx.effBB);
+    const pc = Math.max(0, sig((v + band - cpct) / w) - p3);
     const ip = !isBB && !isSB;
     const size = openTo * (ip ? 3 : 4) + coldCallers * openTo;
     let r = raise(size);

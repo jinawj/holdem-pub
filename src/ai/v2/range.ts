@@ -61,8 +61,12 @@ export function buildRange(view: PlayerView, seat: number, opts: RangeOpts): Ran
   const st = view.seats.find((s) => s.seat === seat)!;
   const behind = behindPreflop(view, seat);
   let raises = 0;
+  // 각 액션 직전의 팟 크기 (벳 크기 비율 계산용)
+  let potRun = 0;
   let lastOpenPct = 20;
   for (const a of view.actionLog) {
+    const potBefore = potRun;
+    potRun += a.amount;
     if (a.type === 'ante' || a.type === 'sb' || a.type === 'bb') continue;
     if (a.street === 'preflop') {
       if (a.seat === seat) {
@@ -115,8 +119,13 @@ export function buildRange(view: PlayerView, seat: number, opts: RangeOpts): Ran
       if (r[i] <= 0) continue;
       const s = str[i], d = dr[i] === 2 ? 1 : dr[i] === 1 ? 0.4 : 0;
       let like = 1;
-      if (a.type === 'bet') like = 0.12 + 0.88 * Math.pow(s, 2.2) + 0.35 * d;
-      else if (a.type === 'raise') like = 0.05 + 0.95 * Math.pow(s, 3) + 0.25 * d;
+      // 벳: 밸류(강할수록) + 블러프(약할수록). 크게 벳할수록 양극화 → 블러프 비중 ↑ (사람들도 큰 벳으로 블러프함)
+      if (a.type === 'bet' || a.type === 'raise') {
+        const frac = potBefore > 0 ? a.amount / potBefore : 0.5;
+        const bluffW = (a.street === 'river' ? 0.22 : 0.14) * Math.min(1.5, 0.5 + frac);
+        const value = a.type === 'bet' ? 0.06 + 0.94 * Math.pow(s, 2.2) : 0.03 + 0.97 * Math.pow(s, 3);
+        like = value + bluffW * Math.pow(1 - s, 2) + (a.type === 'bet' ? 0.35 : 0.25) * d;
+      }
       else if (a.type === 'call') like = (0.15 + 0.85 * sig((s - 0.4) / 0.12) + 0.4 * d) * (1 - 0.35 * Math.pow(s, 6));
       else if (a.type === 'check') like = 1 - 0.55 * Math.pow(s, 3);
       r[i] *= like;
