@@ -11,7 +11,7 @@ export function levelFx(level: number) {
   return {
     /** 균등 분포와 섞는 비율 (실수 온도) */
     // 무작위 실수는 아주 조금만 (뜬금없는 실수 방지). 실력 차이는 방향 있는 실수(릭)·레인지 생각·푸시 정확도로 만든다
-    noise: level >= 10 ? 0 : 0.07 * Math.pow(1 - t, 1.5),
+    noise: level >= 10 ? 0 : 0.07 * AI.noiseMultV2 * Math.pow(1 - t, 1.5),
     /** 푸시/폴드 표 경계 흐림 폭(BB): 이 폭 안의 경계 핸드만 헷갈림 */
     pushWidth: [0, 1.1, 0.9, 0.75, 0.5, 0.4, 0.3, 0.15, 0.1, 0.05, 0.02][level] ?? 0.3,
     /** 상대 레인지를 얼마나 반영하는지 (0 = 내 패만 봄, 1 = 레인지로 생각) */
@@ -76,10 +76,11 @@ export function makeProfile(personaId: PersonaId, level: number, rand: () => num
     for (let i = 0; i < n && a.length; i++) out.push({ id: a.splice(Math.floor(rand() * a.length), 1)[0], adherence: adh });
     return out;
   };
-  // 피쉬 구간 안에서도 레벨이 낮을수록 실수가 많고 강하게
-  if (level <= 3) leaks = pick(LEAKS_BY_TIER.fish, level === 1 ? 4 : level === 2 ? 3 : 2, level === 1 ? 0.9 : level === 2 ? 0.72 : 0.5);
-  else if (level <= 6) leaks = pick(LEAKS_BY_TIER.mid, 2, level === 4 ? 0.6 : level === 5 ? 0.5 : 0.4);
-  else if (level <= 8) leaks = pick(LEAKS_BY_TIER.strong, rand() < 0.5 ? 1 : 0, 0.2);
+  // v2 마일스톤 6: 실력 차이 = '이름 붙은 구멍' 개수. 구멍은 자기 자리에서 거의 매번 나오고(보는 사람이 찾아낼 수 있게),
+  //  그 밖의 자리는 레벨과 상관없이 탄탄하게. 개수·강도는 config AI.leaksByLevel 한 곳에서 조절
+  const [nLeak, adh] = AI.leaksByLevel[level] ?? [0, 0];
+  const pool = level <= 3 ? LEAKS_BY_TIER.fish : level <= 6 ? LEAKS_BY_TIER.mid : LEAKS_BY_TIER.strong;
+  if (nLeak > 0) leaks = pick(pool, nLeak, adh);
   // 텔: Lv1–3 두 개, Lv4–5 한 개, 그 이상 없음. 솔버·레귤러는 없음
   let tells: string[] = [];
   if (personaId !== 'solver' && personaId !== 'reg') {

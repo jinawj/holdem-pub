@@ -59,6 +59,14 @@ export const AI = {
     evLossCutLow: 0.45,
     evLossCutHigh: 0.12,
   },
+  /** v2: 레벨별 구멍(릭) [개수, 지키는 비율]. 레벨 차이는 여기서 만든다 */
+  leaksByLevel: {
+    1: [3, 0.85], 2: [3, 0.8], 3: [2, 0.8], 4: [2, 0.7], 5: [1, 0.7], 6: [1, 0.6], 7: [1, 0.5], 8: [0, 0], 9: [0, 0], 10: [0, 0],
+  } as Record<number, [number, number]>,
+  /** v2: 애매한 자리의 무작위 실수 배수 (명확한 자리에는 아예 없음) */
+  noiseMultV2: 0.5,
+  /** v2: 압박 자리 최소 비율 (clarity.ts judgeLean). 피쉬 성향은 fishMult배 */
+  leanV2: { threeBet: 0.85, valueWhenChecked: 0.85, protectRaise: 0.6, fishMult: 0.6 },
   thinkMs: { base: 500, perDifficulty: 2200, random: 600, snap: 350 },
   tiltDecay: 0.85,
   recallHands: 8,

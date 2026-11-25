@@ -3,6 +3,7 @@ import { COMBOS } from '../../engine/cards';
 import { evaluate } from '../../engine/evaluator';
 import type { PlayerView } from '../../engine/view';
 import { buildContext, Ctx } from './context';
+import { judgeClear, judgeLean, leanTo, lockToClear } from './clarity';
 import { applyGuards } from './guards';
 import { applyHabits } from './habits';
 import { applyTemperature, humanizeSize, recallAdjust, sizeTell, thinkTime } from './human';
@@ -89,6 +90,20 @@ export function decide(view: PlayerView, prof: AiProfile, mem: AiMemory, opts: D
   }
   // 2) 실력 온도 (실수)
   probs = applyTemperature(probs, prof, options);
+  // 2-1) 명확한 자리: 레벨·성향과 상관없이 정답 행동만 (실력 차이는 이름 붙은 구멍=릭으로만 남김)
+  //  릭이 이 자리에서 발동했으면 그 구멍은 일부러 남긴다
+  const clear = judgeClear(ctx);
+  let clearNote: string | undefined;
+  const leakIds = prof.leaks.map((l) => l.id);
+  const leakFired = h.used.some((u) => leakIds.includes(u));
+  if (clear) {
+    if (leakFired) clearNote = `${clear.id}(릭 허용)`;
+    else { probs = lockToClear(options.map((o) => o.act), probs, clear); clearNote = clear.id; }
+  } else {
+    // 압박 자리: 강하게 쳐야 할 때 최소 비율 보장
+    const lean = judgeLean(ctx, PERSONAS[prof.personaId].fish);
+    if (lean && !leakFired) { probs = leanTo(options.map((o) => o.act), probs, lean); clearNote = lean.id; }
+  }
   // 3) 안전장치
   const riverNuts = view.street === 'river' && !view.legal.canCheck ? isRiverNuts(view) : false;
   const g = applyGuards(options, probs, ctx, { eq: view.street === 'river' ? eq : undefined, riverNuts, evCut: fx.evCut });
@@ -116,6 +131,7 @@ export function decide(view: PlayerView, prof: AiProfile, mem: AiMemory, opts: D
       chosen: chosen.act === 'raise' ? `raise:${to}` : chosen.key,
       habit: h.used.length ? h.used.join(',') : undefined,
       guards: g.applied,
+      clear: clearNote,
       calcMs: +calcMs.toFixed(2),
       note: pol.note,
     },

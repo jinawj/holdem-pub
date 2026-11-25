@@ -53,3 +53,44 @@ describe('AI smoke', () => {
     }
   });
 });
+
+// v2 마일스톤 6: 명확한 자리는 레벨·성향과 상관없이 정답 (실력 차이는 이름 붙은 구멍=릭으로만)
+import { lockToClear, leanTo } from '../src/ai/v2/clarity';
+
+describe('명확한 자리 (clarity)', () => {
+  const all = (key: 'reg') => PERSONAS[key];
+  it('앞자리 쓰레기 패(72o)는 모든 성향·레벨이 폴드', () => {
+    const h = mkHand({ stacks: Array(6).fill(40000), button: 0, holes: { 3: '7h2c' } });
+    const view = makePlayerView(h, 3, 6);
+    for (const id of Object.keys(PERSONAS) as 'reg'[]) {
+      const [lo, hi] = all(id).lv;
+      for (let lv = lo; lv <= hi; lv++) {
+        for (let i = 0; i < 5; i++) {
+          const d = decide(view, makeProfile(id, lv, rand), newMemory(), { rand, quick: true });
+          expect(d.type, `${id} Lv${lv}`).toBe('fold');
+        }
+      }
+    }
+  });
+  it('프리미엄(AKo)은 아무도 안 들어왔으면 모든 성향·레벨이 레이즈', () => {
+    const h = mkHand({ stacks: Array(6).fill(40000), button: 0, holes: { 3: 'AhKc' } });
+    const view = makePlayerView(h, 3, 6);
+    for (const id of Object.keys(PERSONAS) as 'reg'[]) {
+      const [lo, hi] = all(id).lv;
+      for (let lv = lo; lv <= hi; lv++) {
+        const d = decide(view, makeProfile(id, lv, rand), newMemory(), { rand, quick: true });
+        expect(d.type, `${id} Lv${lv}`).toBe('raise');
+      }
+    }
+  });
+  it('lockToClear: 허용 행동만 남기고 비율 유지, leanTo: 최소 비율 보장', () => {
+    const p = lockToClear(['fold', 'call', 'raise'], [0.5, 0.3, 0.2], { id: 't', ok: ['call', 'raise'] });
+    expect(p[0]).toBe(0);
+    expect(p[1]).toBeCloseTo(0.6);
+    expect(p[2]).toBeCloseTo(0.4);
+    const q = leanTo(['check', 'raise', 'raise'], [0.8, 0.1, 0.1], { id: 't', act: 'raise', min: 0.85 });
+    expect(q[1] + q[2]).toBeCloseTo(0.85);
+    expect(q[1]).toBeCloseTo(q[2]);
+    expect(q.reduce((a, b) => a + b, 0)).toBeCloseTo(1);
+  });
+});

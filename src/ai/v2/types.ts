@@ -51,6 +51,8 @@ export interface DecisionMemo {
   chosen: string;
   habit?: string;
   guards: string[];
+  /** 명확한 자리 이름 (정답 행동으로 고정됨, '(릭 허용)'이면 구멍을 일부러 남김) */
+  clear?: string;
   calcMs: number;
   note?: string;
 }
