@@ -91,28 +91,29 @@ export function decide(view: PlayerView, prof: AiProfile, mem: AiMemory, opts: D
   }
   // 2) 실력 온도 (실수)
   probs = applyTemperature(probs, prof, options);
-  // 2-1) 명확한 자리: 레벨·성향과 상관없이 정답 행동만 (실력 차이는 이름 붙은 구멍=릭으로만 남김)
-  //  릭이 이 자리에서 발동했으면 그 구멍은 일부러 남긴다
-  const clear = judgeClear(ctx);
-  let clearNote: string | undefined;
-  const leakIds = prof.leaks.map((l) => l.id);
-  const leakFired = h.used.some((u) => leakIds.includes(u));
-  if (clear) {
-    if (leakFired) clearNote = `${clear.id}(릭 허용)`;
-    else { probs = lockToClear(options.map((o) => o.act), probs, clear); clearNote = clear.id; }
-  } else {
-    // 압박 자리: 강하게 쳐야 할 때 최소 비율 보장
-    const lean = judgeLean(ctx, PERSONAS[prof.personaId].fish);
-    if (lean && !leakFired) { probs = leanTo(options.map((o) => o.act), probs, lean); clearNote = lean.id; }
-  }
-  // 2-2) 고수의 일관성: 레벨이 높을수록 확률을 날카롭게 (우세한 행동을 꾸준히, 계획과 반대인 드문 행동은 사라짐)
-  //  하수는 그대로 흐트러져 있어 짧게 쳐 봐도 레벨 차이가 보인다
+  // 2-1) 고수의 일관성: 레벨이 높을수록 확률을 날카롭게 (우세한 행동을 꾸준히, 계획과 반대인 드문 행동은 사라짐)
+  //  하수는 그대로 흐트러져 있어 짧게 쳐 봐도 레벨 차이가 보인다. 명확한 자리·압박 자리 보정보다 먼저 (보정값이 지워지지 않게)
   const k = prof.level >= AI.sharpenV2.from ? 1 + AI.sharpenV2.perLevel * (prof.level - AI.sharpenV2.from + 1) : 1;
   if (k > 1) {
     const q = probs.map((x) => Math.pow(x, k));
     const s = q.reduce((a, b) => a + b, 0);
     if (s > 0) probs = q.map((x) => x / s);
   }
+  // 2-2) 명확한 자리: 레벨·성향과 상관없이 정답 행동만 (실력 차이는 이름 붙은 구멍=릭으로만 남김)
+  //  릭이 이 자리에서 발동했으면 그 구멍은 일부러 남긴다
+  const acts = options.map((o) => o.act);
+  const clear = judgeClear(ctx);
+  const notes: string[] = [];
+  const leakIds = prof.leaks.map((l) => l.id);
+  const leakFired = h.used.some((u) => leakIds.includes(u));
+  if (clear) {
+    if (leakFired) notes.push(`명확:${clear.id}(릭 허용)`);
+    else { probs = lockToClear(acts, probs, clear); notes.push(`명확:${clear.id}`); }
+  }
+  // 2-3) 압박 자리: 강하게 쳐야 할 때 최소 비율 보장 (명확한 자리여도 그 행동이 허용되면 함께 적용)
+  const lean = judgeLean(ctx, PERSONAS[prof.personaId].fish, prof.level);
+  if (lean && !leakFired && (!clear || clear.ok.includes(lean.act))) { probs = leanTo(acts, probs, lean); notes.push(`압박:${lean.id}`); }
+  const clearNote = notes.length ? notes.join(' ') : undefined;
   // 3) 안전장치
   const riverNuts = view.street === 'river' && !view.legal.canCheck ? isRiverNuts(view) : false;
   const g = applyGuards(options, probs, ctx, { eq: view.street === 'river' ? eq : undefined, riverNuts, evCut: Math.max(fx.evCut, AI.evCutMinV2) });

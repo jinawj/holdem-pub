@@ -45,7 +45,8 @@ export const HABITS: Record<string, Habit> = {
   // 공격수
   wideLatePosition: (h) => (h.ctx.street === 'preflop' && h.ctx.raisesPre === 0 && !h.ctx.view.legal.canCheck && h.ctx.behind <= 3 && h.ctx.pct < openPctFor(h.ctx.behind) * 1.5 ? toAct(h, 'raise', 'small') : null),
   stabWhenChecked: (h) => (h.ctx.street !== 'preflop' && h.ctx.checkedToMe && h.ctx.numOpp === 1 && !h.ctx.facingBet ? toAct(h, 'raise', 'small') : null),
-  drawSemiBluff: (h) => (draw(h.ctx) ? toAct(h, 'raise', 'mid') : null),
+  // 세미블러프는 벳이 없거나 벳 한 번에만, 헤즈업 위주 (레이즈 전쟁·3인 팟 리레이즈 금지)
+  drawSemiBluff: (h) => (draw(h.ctx) && h.ctx.raisesThisStreet <= 1 && (h.ctx.numOpp === 1 || !h.ctx.facingBet) ? toAct(h, 'raise', 'mid') : null),
   // 콜링스테이션
   pairCallsDown: (h) => (h.ctx.street !== 'preflop' && h.ctx.facingBet && h.ctx.madeCat >= 1 ? toAct(h, 'call') : null),
   // v2: 벳을 받았을 때만 (체크로 넘어오면 밸류벳은 함)

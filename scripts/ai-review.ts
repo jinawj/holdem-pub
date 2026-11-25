@@ -53,7 +53,7 @@ for (let k = 0; written < want && k < want * 6; k++) {
     chosen[idx] = d.type;
     const leaks = profiles[seat].leaks.map((l) => l.id);
     const habitTxt = d.memo.habit ? d.memo.habit.split(',').map((x) => (leaks.includes(x) ? `릭:${x}` : `습관:${x}`)).join(',') : '';
-    thoughts[idx] = `${d.memo.note ?? ''}${habitTxt ? ` [${habitTxt}]` : ''}${d.memo.clear ? ` [고정:${d.memo.clear}]` : ''} {${opts}}`;
+    thoughts[idx] = `${d.memo.note ?? ''}${habitTxt ? ` [${habitTxt}]` : ''}${d.memo.clear ? ` [${d.memo.clear}]` : ''} {${opts}}`;
     return d;
   }, null, N);
   // 플랍까지 간 핸드만 (포스트플랍 판단을 보기 위해)

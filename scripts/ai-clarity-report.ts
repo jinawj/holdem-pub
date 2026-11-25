@@ -52,7 +52,8 @@ for (let k = 0; k < hands; k++) {
     if (view.street !== 'preflop') { a.post++; if (d.type === 'raise') a.aggr++; }
     const ctx = buildContext(view);
     const c = judgeClear(ctx);
-    const ln = c ? null : judgeLean(ctx, AI.PERSONAS[pr.personaId].fish);
+    const ln0 = judgeLean(ctx, AI.PERSONAS[pr.personaId].fish, pr.level);
+    const ln = ln0 && (!c || c.ok.includes(ln0.act)) ? ln0 : null;
     if (ln) {
       a.lean++; if (d.type === ln.act) a.leanDone++;
       const s = (bySpot['(압박) ' + ln.id] ??= { n: 0, bad: 0, leak: 0 }); s.n++; if (d.type !== ln.act) s.bad++;

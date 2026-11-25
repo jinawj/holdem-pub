@@ -66,7 +66,7 @@ export const AI = {
   /** v2: 애매한 자리의 무작위 실수 배수 (명확한 자리에는 아예 없음) */
   noiseMultV2: 0.5,
   /** v2: 압박 자리 최소 비율 (clarity.ts judgeLean). 피쉬 성향은 fishMult배 */
-  leanV2: { threeBet: 0.85, valueWhenChecked: 0.85, protectRaise: 0.6, semiBluff: 0.55, fishMult: 0.6 },
+  leanV2: { threeBet: 0.85, valueWhenChecked: 0.85, protectRaise: 0.6, semiBluff: 0.55, threeBetBluff: 0.4, fishMult: 0.6 },
   /** v2: 기대값 컷 최소 폭(팟 대비). 고레벨에서 좁은 컷이 단순 EV 계산의 최고 행동 하나만 남기던 문제 방지 */
   evCutMinV2: 0.3,
   /** v2: 이 확률 미만 행동은 고르지 않음 (v1은 guards.tailCut 0.03) */

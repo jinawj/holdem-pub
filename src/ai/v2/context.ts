@@ -76,7 +76,7 @@ export function buildContext(view: PlayerView): Ctx {
     const all = evaluate([h1, h2, ...view.board]);
     madeCat = categoryOf(all);
     boardCat = categoryOf(evaluate(view.board));
-    if (madeCat === boardCat && boardCat <= 2) madeCat = 0; // 보드 족보
+    if (madeCat === boardCat && boardCat <= 3) madeCat = 0; // 보드 족보 (보드 페어·투페어·트립스는 내 패가 아님)
     const boardRanks = view.board.map(rankOf).sort((a, b) => b - a);
     const hr = [rankOf(h1), rankOf(h2)];
     topPair = madeCat === 1 && hr.includes(boardRanks[0]);

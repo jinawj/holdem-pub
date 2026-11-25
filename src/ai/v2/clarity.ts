@@ -80,7 +80,7 @@ function postflop(ctx: Ctx): Clear | null {
 //  해당 행동을 최소 비율 이상으로 끌어올린다 (피쉬 성향은 수동적인 게 특징이라 낮게)
 export interface Lean { id: string; act: ActKey; min: number }
 
-export function judgeLean(ctx: Ctx, fish: boolean): Lean | null {
+export function judgeLean(ctx: Ctx, fish: boolean, level = 6): Lean | null {
   const L = ctx.view.legal;
   if (!L.canRaise) return null;
   const P = AI_LEAN;
@@ -88,6 +88,10 @@ export function judgeLean(ctx: Ctx, fish: boolean): Lean | null {
   if (ctx.street === 'preflop') {
     if (ctx.raisesPre === 1 && ctx.toCall > 0 && ctx.effBB >= 20 && ['AA', 'KK', 'QQ', 'JJ', 'AKs', 'AKo'].includes(ctx.key)) {
       return { id: '강한 패 3벳', act: 'raise', min: m(P.threeBet) };
+    }
+    // 고수의 3벳 블러프: A5s~A2s (A 블로커 + 휠), 깊은 스택에서 오픈 한 번 받았을 때
+    if (!fish && level >= 7 && ctx.raisesPre === 1 && ctx.toCall > 0 && ctx.effBB >= 40 && ['A5s', 'A4s', 'A3s', 'A2s'].includes(ctx.key)) {
+      return { id: '3벳 블러프(A5s류)', act: 'raise', min: P.threeBetBluff };
     }
     return null;
   }

@@ -104,3 +104,16 @@ describe('드로우 판정', () => {
   it('A-2-3-4 휠 드로우는 거트샷', () => { expect(d('Ad2c', '3s4h9d')).toMatchObject({ oesd: false, gutshot: true }); });
   it('더블 거트(9-7 on J-8-5, 6·T 둘 다)는 양방향과 같게', () => { expect(d('9c7c', 'Jd8h5s')).toMatchObject({ oesd: true }); });
 });
+
+import { buildContext } from '../src/ai/v2/context';
+import { applyMove } from '../src/engine/hand';
+describe('보드 족보 판별', () => {
+  it('보드 트립스(QQQ)는 내 패가 아님 (A4 = 노페어)', () => {
+    let h = mkHand({ stacks: [40000, 40000], button: 0, holes: { 0: 'Ah4s', 1: '7c8d' }, board: 'QdQsQhKd2c' });
+    h = applyMove(h, { type: 'call' } as any);
+    h = applyMove(h, { type: 'check' } as any);
+    const ctx = buildContext(makePlayerView(h, 1, 2));
+    expect(ctx.street).toBe('flop');
+    expect(ctx.madeCat).toBe(0);
+  });
+});
