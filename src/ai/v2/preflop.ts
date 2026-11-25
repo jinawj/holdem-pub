@@ -171,7 +171,9 @@ export function preflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: ()
     const need = ctx.toCall / Math.max(1, ctx.pot + ctx.toCall);
     const deep = Math.max(0, Math.min(1, (ctx.effBB - 40) / 100));
     const ipMult = isBB ? Math.max(1.35, Math.min(2.3, 0.33 / Math.max(0.05, need))) : isSB ? 0.45 : ctx.behind <= 2 ? 1.1 + 0.3 * deep : 0.9 + 0.2 * deep;
-    const band = AI.callRatio * o * ipMult * loose * (1 + p.stickiness * 0.5) * (1 - Math.max(0, aggr) * 0.2);
+    let band = AI.callRatio * o * ipMult * loose * (1 + p.stickiness * 0.5) * (1 - Math.max(0, aggr) * 0.2);
+    // BB: "이미 1BB 냈고 이 가격이면 웬만하면 본다" — 상대 오픈 범위보다 넓게 방어 (가격이 쌀수록 더 넓게)
+    if (isBB) band = Math.max(band, o * (1.2 + 1.5 * Math.max(0, 0.33 - need) / 0.33) * Math.min(1.3, loose) - v);
     let p3 = sig((v - pct) / w);
     if (ctx.effBB > 40 && isBluffCandidate(ctx.key)) p3 = p3 + (1 - p3) * 0.3 * p.bluffMult;
     if (aggr < 0) p3 *= Math.max(0.2, 1 + aggr * 0.8);

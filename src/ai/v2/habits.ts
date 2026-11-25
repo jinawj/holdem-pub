@@ -48,7 +48,8 @@ export const HABITS: Record<string, Habit> = {
   drawSemiBluff: (h) => (draw(h.ctx) ? toAct(h, 'raise', 'mid') : null),
   // 콜링스테이션
   pairCallsDown: (h) => (h.ctx.street !== 'preflop' && h.ctx.facingBet && h.ctx.madeCat >= 1 ? toAct(h, 'call') : null),
-  raiseOnlyStrong: (h) => (h.eq < 0.85 ? moveRaise(h, h.ctx.facingBet ? 'call' : 'check') : null),
+  // v2: 벳을 받았을 때만 (체크로 넘어오면 밸류벳은 함)
+  raiseOnlyStrong: (h) => (h.ctx.facingBet && h.eq < 0.85 ? moveRaise(h, 'call') : null),
   noBluff: (h) => (h.ctx.street !== 'preflop' && h.eq < 0.3 && !draw(h.ctx) ? moveRaise(h, h.ctx.facingBet ? 'fold' : 'check') : null),
   // 니트
   foldTo3betUnlessPremium: (h) => (h.ctx.street === 'preflop' && h.ctx.raisesPre >= 2 && !isPremium(h.ctx.key) ? toAct(h, 'fold') : null),
