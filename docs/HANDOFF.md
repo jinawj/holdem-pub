@@ -18,7 +18,7 @@
 |---|---|
 | PC에서 실행 | `npm run dev` |
 | 같은 와이파이 폰에서 | `npm run dev:phone` → 출력된 Network 주소 |
-| 단위 테스트(엔진·AI) | `npm test` (43개) |
+| 단위 테스트(엔진·AI) | `npm test` (47개) |
 | 모바일 화면 점검 | `npx playwright test mobile-audit` (12크기×6/8/10인 + 올인 쇼다운, 약 5분) |
 | 전체 화면 테스트 | `npm run e2e` |
 | AI 시험지 | `npm run ai:spots` (35문항 142건, 현재 100%) |
@@ -70,7 +70,7 @@ scripts/                 sim, ai-spots, ai-match, ai-cli, generate-hand-rank, ge
   - `npx tsx scripts/ai-match.ts --pairs 3000 --version` : v2 vs v1 (퇴보 확인)
   - `npx tsx scripts/ai-postflop-report.ts --hands 3000 [--v 1]` : C벳·동크·C벳 폴드·리버 큰 벳 콜률
   - `npx tsx scripts/ai-preflop-report.ts --stack 200 [--v 1]` : 상황별 프리플랍 참여율
-  - `npx tsx scripts/ai-review.ts --hands 50 --stack 200 --seed N --out reports/x.md` : AI 생각이 붙은 핸드 기록
+  - `npx tsx scripts/ai-review.ts --hands 45 --stack 100 --seed N --tier low|high --out reports/x.md` : AI 생각이 붙은 핸드 기록 (`--tier low`=하수 테이블, `high`=고수 테이블, [릭:]·[고정:] 표시). 하수·고수를 따로 리뷰어(researcher)에게 판정시킴
   - `npx tsx scripts/ai-clarity-report.ts --hands 1500 [--v 1] [--examples 1]` : **명확한 자리 정답률·압박 자리 실행률 (마일스톤 6부터 최우선 기준)**
 - **방향(마일스톤 6~)**: 레벨 서열 맞추기는 목표에서 내림. 명확한 자리는 모두 정답(`v2/clarity.ts`), 실력 차이는 이름 붙은 구멍(릭) 개수(`config AI.leaksByLevel`), 강하게 쳐야 할 자리는 최소 비율(`AI.leanV2`). 실제로 쳐 보고 "틀렸다" 싶은 자리는 clarity에 추가.
 - 리뷰 루프: review 로그를 `researcher` 에이전트(Sonnet)에게 읽혀 "사람 같은가" 판정 → 규칙 수정 → 위 도구로 측정 → 커밋. 기록은 PROGRESS.md 'AI v2' 절.

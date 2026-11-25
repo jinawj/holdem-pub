@@ -46,7 +46,8 @@ export function applyGuards(options: Option[], probs: number[], ctx: Ctx, g: Gua
     }
   }
   // 꼬리 자르기
-  const t = p.map((x) => (x < AI.guards.tailCut ? 0 : x));
+  // v2: 아주 드문 행동(꼬리)은 사람 눈에 '이상한 플레이'로 보여 더 넓게 자름 (AI.tailCutV2)
+  const t = p.map((x) => (x < AI.tailCutV2 ? 0 : x));
   if (t.some((x) => x > 0)) {
     if (t.some((x, i) => x !== p[i] && p[i] > 0)) applied.push('작은 확률 잘라냄');
     p = norm(t);

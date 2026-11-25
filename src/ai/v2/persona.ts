@@ -53,7 +53,11 @@ function jitter(x: number, rand: () => number, pct = 0.1) {
 }
 
 export function makeProfile(personaId: PersonaId, level: number, rand: () => number): AiProfile {
-  const d = PERSONAS[personaId];
+  const base = PERSONAS[personaId];
+  const ov = AI.personaV2[personaId];
+  const d: PersonaDef = ov
+    ? { ...base, ...(ov.p ?? {}), habits: base.habits.map((h) => ({ id: h.id, adherence: ov.habits?.[h.id] ?? h.adherence })) }
+    : base;
   const fx = levelFx(level);
   const j = (x: number) => jitter(x, rand);
   const p = {
@@ -79,7 +83,8 @@ export function makeProfile(personaId: PersonaId, level: number, rand: () => num
   // v2 마일스톤 6: 실력 차이 = '이름 붙은 구멍' 개수. 구멍은 자기 자리에서 거의 매번 나오고(보는 사람이 찾아낼 수 있게),
   //  그 밖의 자리는 레벨과 상관없이 탄탄하게. 개수·강도는 config AI.leaksByLevel 한 곳에서 조절
   const [nLeak, adh] = AI.leaksByLevel[level] ?? [0, 0];
-  const pool = level <= 3 ? LEAKS_BY_TIER.fish : level <= 6 ? LEAKS_BY_TIER.mid : LEAKS_BY_TIER.strong;
+  // 성향 습관과 같은 릭은 빼서 중복 발동 방지
+  const pool = (level <= 3 ? LEAKS_BY_TIER.fish : level <= 6 ? LEAKS_BY_TIER.mid : LEAKS_BY_TIER.strong).filter((id) => !d.habits.some((h) => h.id === id));
   if (nLeak > 0) leaks = pick(pool, nLeak, adh);
   // 텔: Lv1–3 두 개, Lv4–5 한 개, 그 이상 없음. 솔버·레귤러는 없음
   let tells: string[] = [];

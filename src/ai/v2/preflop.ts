@@ -170,6 +170,8 @@ export function preflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: ()
     const coldCallers = ctx.view.actionLog.filter((a) => a.street === 'preflop' && a.type === 'call').length;
     let v = AI.threeBetValueRatio * o * (1 + aggr * 0.6) * Math.sqrt(loose);
     if (coldCallers > 0) v *= 0.8;
+    // 고수는 3벳을 더 자주 (밸류 범위 넓게 + 블러프 3벳)
+    if (prof.level >= 7 && !PERSONAS[prof.personaId].fish) v *= AI.threeBetMultV2;
     const isBB = ctx.view.mySeat === ctx.view.bbSeat;
     const isSB = ctx.view.mySeat === ctx.view.sbSeat;
     // BB는 이미 낸 블라인드 덕에 싸게 콜 → 콜 가격이 쌀수록 넓게 방어. 깊으면 인포지션 콜드콜도 넓게 (셋·수딧 커넥터 노림)

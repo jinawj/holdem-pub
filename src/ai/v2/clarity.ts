@@ -32,6 +32,8 @@ function preflop(ctx: Ctx): Clear | null {
   }
   // 아래는 깊은 스택에서만 (짧으면 푸시/폴드 표가 정함)
   if (ctx.effBB < 15) return null;
+  // 4벳 이상을 받은 비프리미엄 패: 플랫 콜 금지 (폴드 또는 올인 5벳)
+  if (ctx.raisesPre >= 3 && facing && !PREMIUM.includes(ctx.key) && ctx.toCall < 0.6 * L.stack) return { id: '4벳에 플랫 금지', ok: ['fold', 'raise'] };
   // 앞 포지션 쓰레기 패 오픈·림프 금지 (BB 체크는 제외)
   if (ctx.raisesPre === 0 && !L.canCheck && ctx.behind >= 4 && ctx.pct >= 70) return { id: '앞자리 쓰레기 패 폴드', ok: ['fold'] };
   // 레이즈 받은 쓰레기 패 (싼 BB 방어 제외)
@@ -52,6 +54,9 @@ function postflop(ctx: Ctx): Clear | null {
     if ((ctx.madeCat >= 4 || (ctx.madeCat === 3 && !ctx.monotone)) && ctx.raisesThisStreet <= 1) {
       return { id: '강한 패 폴드 금지', ok: ['call', 'raise'] };
     }
+    // 원페어(보드 페어 투페어 포함)로 레이즈 전쟁 금지: 레이즈를 받은 뒤 다시 올리지 않음 (깊은 스택)
+    const onePair = ctx.madeCat === 1 || (ctx.madeCat === 2 && ctx.paired);
+    if (onePair && ctx.raisesThisStreet >= 2 && !bigDraw && ctx.spr > 1.5) return { id: '원페어 레이즈 전쟁 금지', ok: ['fold', 'call'] };
     // 리버 노페어로 큰 벳 콜 금지 (블러프 레이즈는 허용)
     if (river && ctx.madeCat === 0 && ctx.lastBetFrac >= 0.5) return { id: '리버 노페어 큰 벳 폴드', ok: ['fold', 'raise'] };
     // 멀티웨이 에어(드로우도 없음)로 벳 따라가기 금지
@@ -98,6 +103,12 @@ export function judgeLean(ctx: Ctx, fish: boolean): Lean | null {
   }
   if (facing && ctx.street !== 'river' && ctx.madeCat >= 3 && !ctx.monotone && ctx.wet > 0.4 && ctx.raisesThisStreet === 1) {
     return { id: '젖은 보드 몬스터 레이즈', act: 'raise', min: m(P.protectRaise) };
+  }
+  // 넛 플러시 드로우·콤보 드로우로 체크를 받음 → 세미블러프 (상대 2명까지)
+  const all = [...ctx.view.holeCards, ...ctx.view.board];
+  const aceFd = ctx.flushDraw && ctx.view.holeCards.some((c) => (c >> 2) === 12 && all.filter((x) => (x & 3) === (c & 3)).length === 4);
+  if (!facing && ctx.checkedToMe && ctx.street !== 'river' && ctx.numOpp <= 2 && ctx.madeCat === 0 && (aceFd || (ctx.flushDraw && ctx.oesd))) {
+    return { id: '넛 드로우 세미블러프', act: 'raise', min: m(P.semiBluff) };
   }
   return null;
 }

@@ -15,9 +15,10 @@ export interface PostOut extends PolicyOut { eqRes: EquityResult; base: number[]
 
 export function betSizesFor(ctx: Ctx, prof: AiProfile): number[] {
   let sizes: number[];
+  // 정석 크기: 플랍 드라이 1/3·2/3, 웻 1/2·3/4, 턴 1/2·3/4, 리버 1/2·팟 (팟 이상은 리버만)
   if (ctx.street === 'river') sizes = [0.5, 1.0];
-  else if (ctx.wet < 0.3) sizes = [0.33, 0.66];
-  else sizes = [0.66, 1.0];
+  else if (ctx.street === 'flop') sizes = ctx.wet < 0.5 ? [0.33, 0.66] : [0.5, 0.75];
+  else sizes = [0.5, 0.75];
   if (prof.p.sizing === 'overbet') sizes = [...sizes, 1.5];
   if (prof.p.sizing === 'small') sizes = [0.33, 0.5];
   return sizes;
@@ -45,6 +46,7 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
   const draw = !river && (ctx.flushDraw || ctx.oesd) ? 1 : !river && ctx.gutshot ? 0.4 : 0;
   const options: Option[] = [];
   const base: number[] = [];
+  let vetoRaise = false; // 사람식 판단이 '레이즈는 안 한다'고 정한 경우 계산이 되살리지 못하게
 
   /** 평균적인 상대가 계속할 비율 */
   const contFrac = (b: number, P: number) => clamp((P / (P + b)) * 0.95, 0.08, 0.95);
@@ -117,6 +119,7 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
     const pCall = Math.max(0, pCont - pRaise);
     base.push(Math.max(0, 1 - pCall - pRaise), pCall);
     if (raiseOpt) base.push(pRaise);
+    vetoRaise = d.noRaise;
   }
 
   // ---- EV 전략과 섞기 ----
@@ -129,7 +132,14 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
   // 계산(EV)은 보조: 사람식 판단 비중을 높여 수학적 편향을 줄임
   // 실력이 높을수록 레인지·계산을 더 믿음 (Lv1 약 15% → Lv10 약 50%), 낮을수록 감·습관 위주
   const w = clamp(p.evWeight * 0.5 + (prof.level - 1) * 0.04, 0, 0.7);
-  const probs = base.map((b, i) => (b / bsum) * (1 - w) + evDist[i] * w);
+  let probs = base.map((b, i) => (b / bsum) * (1 - w) + evDist[i] * w);
+  if (vetoRaise) {
+    // 레이즈 몫은 콜로 (계산이 원페어 리레이즈·올인을 끌어올리는 것 방지)
+    const ci = options.findIndex((o) => o.act === 'call');
+    probs = probs.map((x, i) => (options[i].act === 'raise' ? 0 : x));
+    const s = probs.reduce((a, b) => a + b, 0);
+    if (ci >= 0) probs[ci] += 1 - s;
+  }
   return {
     options, probs, equity: eq, eqRes, base: base.map((b) => b / bsum), evDist, read: rd, planBetP,
     note: `${thought} (에퀴티 ${(eq * 100).toFixed(0)}%, 상대 ${n}명)`,
@@ -172,17 +182,20 @@ function planBet(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, n: number,
   if (bluffy) pb *= HU ? 1 : rd.initiative && S === 'flop' && dry ? 0.8 : 0.5;
   if (bluffy) pb = Math.min(0.95, pb * Math.max(0.15, p.bluffMult));
   pb = aggr >= 0 ? pb + (1 - pb) * aggr * 0.25 : pb * (1 + aggr * 0.6);
+  // 하수(Lv1–3)는 '맞으면 벳': 주도권과 상관없이 페어 이상이면 먼저 벳하는 일이 잦음 (멀티웨이 전부 체크 방지)
+  if (level <= 3 && (c === 'medium' || c === 'strong' || c === 'monster')) pb = Math.max(pb, 0.35);
   return clamp(pb, 0, 0.97);
 }
 
 /** 벳을 받았을 때: 계속할 확률·레이즈 확률. 사람식: 패 강도 × 벳 크기 × 가격, 고수일수록 블러프를 의식(히어로콜) */
-function planDefense(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, level: number, recall: { callBoost: number; foldBoost: number }, eq: number): { cont: number; raise: number; why: string } {
+function planDefense(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, level: number, recall: { callBoost: number; foldBoost: number }, eq: number): { cont: number; raise: number; why: string; noRaise: boolean } {
   const c = rd.cls;
   const river = ctx.street === 'river';
   const small = ctx.lastBetFrac <= 0.4;
   const polar = rd.polarBet;
   const wet = ctx.wet > 0.55;
   let cont: number, raise = 0, why = '';
+  let noRaise = false;
   switch (c) {
     case 'monster': cont = 1; raise = river ? 0.55 : wet ? 0.55 : 0.35; why = '강해서 레이즈 또는 슬로플레이'; break;
     case 'strong': cont = polar && river ? 0.8 : 0.95; raise = wet ? 0.2 : 0.1; why = '좋은 패라 콜'; break;
@@ -196,21 +209,25 @@ function planDefense(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, level:
   if (p.stickiness >= 0.5 && (c === 'weak' || c === 'air' || c === 'medium') && (c !== 'air' || rd.cls === 'air' && (ctx.gutshot || ctx.view.holeCards.some((x) => (x >> 2) === 12)))) {
     cont = Math.max(cont, river && c === 'air' ? 0.35 : 0.6); why = '일단 따라가 봄 (스테이션)';
   }
-  if (p.aggression < 0 && c !== 'monster') raise = 0;
+  if (p.aggression < 0 && c !== 'monster') { raise = 0; noRaise = true; }
   // 니트: 큰 팟 레이즈는 몬스터만
-  if (p.foldToAggro >= 0.4 && c !== 'monster') raise = 0;
+  if (p.foldToAggro >= 0.4 && c !== 'monster') { raise = 0; noRaise = true; }
   // 고수: 큰 벳에도 블러프가 섞여 있다는 걸 앎 → 중간·약한 패로 히어로콜 (최소 수비 빈도 감각)
   if (polar && (c === 'medium' || c === 'weak')) {
     const hero = level >= 9 ? (c === 'medium' ? 0.7 : rd.blocker ? 0.45 : 0.25) : level >= 7 ? (c === 'medium' ? 0.6 : rd.blocker ? 0.3 : 0.12) : 0;
     if (hero > cont) { cont = hero; why = '큰 벳이지만 블러프도 있다고 보고 히어로콜'; }
   }
-  // 3명 이상 팟: 에어 플로트는 하지 않음 (헤즈업에서만 띄워 봄)
-  if (c === 'air' && ctx.numOpp >= 2) { cont = Math.min(cont, 0.03); raise = Math.min(raise, 0.02); }
+  // 3명 이상 팟: 에어 플로트는 하지 않음 (헤즈업에서만 띄워 봄). 단 스테이션은 A하이·거트샷이면 작은~보통 벳은 따라감
+  const stationHope = p.stickiness >= 0.5 && (ctx.gutshot || ctx.view.holeCards.some((x) => (x >> 2) === 12)) && ctx.lastBetFrac < 0.75;
+  if (c === 'air' && ctx.numOpp >= 2 && !stationHope) { cont = Math.min(cont, 0.03); raise = Math.min(raise, 0.02); }
+  // 몬스터라도 보드가 무서워 계산상 밀리면(4플러시·4스트레이트 등) 레이즈하지 않음 — 보드를 읽는 건 Lv4+
+  if (c === 'monster' && level >= 4 && eq < 0.5) { raise = 0; why = '강한 패지만 보드가 위험해 콜'; }
   // 내가 벳했는데 레이즈(체크레이즈)를 받음: 상대 레인지가 강해짐 → 몬스터 아니면 재레이즈 안 하고, 탑페어·세컨드는 신중하게
   const iBetThisStreet = ctx.view.actionLog.some((a) => a.street === ctx.street && a.seat === ctx.view.mySeat && (a.type === 'bet' || a.type === 'raise'));
   // 레이즈를 받으면 멈추는 것도 실력: Lv1–3은 탑페어로 계속 밀어붙임(사람다운 실수), 중간은 반쯤, 고수는 확실히
+
   if (iBetThisStreet && c !== 'monster' && level >= 4) {
-    raise = 0;
+    raise = 0; noRaise = true;
     if (c === 'strong') cont = Math.min(cont, 0.75);
     if (c === 'medium') cont = Math.min(cont, 0.3);
     if (c === 'weak' || c === 'air') cont = Math.min(cont, 0.08);
@@ -222,12 +239,12 @@ function planDefense(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, level:
   // 가격이 아주 좋으면 (필요 승률 20% 미만) 웬만하면 콜
   if (ctx.potOdds < 0.2 && c !== 'air') cont = Math.max(cont, 0.8);
   // 계산이 '이건 진짜 아니다'라고 할 때만 브레이크 (보드 위험은 read에서 이미 반영)
-  if (eq < 0.08 && c !== 'monster') cont *= 0.4;
+  if (eq < 0.08 && c !== 'monster' && !stationHope) cont *= 0.4;
   // 성향·기억
   if (c === 'medium' || c === 'weak') cont += (1 - cont) * Math.max(0, p.stickiness) * 0.35;
   if (polar) cont *= 1 - Math.max(0, p.foldToAggro) * 0.5;
   cont = clamp(cont + recall.callBoost * 2 - recall.foldBoost * 2, 0, 1);
   raise = clamp(raise * (1 + aggr * 0.8) * (c === 'air' || c === 'draw' ? Math.max(0.2, p.bluffMult) : 1), 0, 0.9);
   raise = Math.min(raise, cont);
-  return { cont, raise, why };
+  return { cont, raise, why, noRaise };
 }

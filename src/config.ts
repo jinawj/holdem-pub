@@ -66,7 +66,19 @@ export const AI = {
   /** v2: 애매한 자리의 무작위 실수 배수 (명확한 자리에는 아예 없음) */
   noiseMultV2: 0.5,
   /** v2: 압박 자리 최소 비율 (clarity.ts judgeLean). 피쉬 성향은 fishMult배 */
-  leanV2: { threeBet: 0.85, valueWhenChecked: 0.85, protectRaise: 0.6, fishMult: 0.6 },
+  leanV2: { threeBet: 0.85, valueWhenChecked: 0.85, protectRaise: 0.6, semiBluff: 0.55, fishMult: 0.6 },
+  /** v2: 기대값 컷 최소 폭(팟 대비). 고레벨에서 좁은 컷이 단순 EV 계산의 최고 행동 하나만 남기던 문제 방지 */
+  evCutMinV2: 0.3,
+  /** v2: 이 확률 미만 행동은 고르지 않음 (v1은 guards.tailCut 0.03) */
+  tailCutV2: 0.07,
+  /** v2: 고수 일관성. 레벨 from 이상에서 확률을 (1 + perLevel×(레벨−from+1))제곱 후 정규화 (Lv10 ≈ 1.75제곱) */
+  sharpenV2: { from: 6, perLevel: 0.15 },
+  /** v2: 고수(Lv7+, 비피쉬) 3벳 범위 배수 */
+  threeBetMultV2: 1.3,
+  /** v2 전용 성향 조정 (personas.json은 v1 기준선과 같이 쓰므로 여기서 덮어씀). habits: 습관 id → 지키는 비율 */
+  personaV2: {
+    maniac: { p: { cbetFreq: 0.2 }, habits: { overbet: 0.35 } },
+  } as Record<string, { p?: Record<string, number>; habits?: Record<string, number> }>,
   thinkMs: { base: 500, perDifficulty: 2200, random: 600, snap: 350 },
   tiltDecay: 0.85,
   recallHands: 8,

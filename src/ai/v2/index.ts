@@ -1,4 +1,5 @@
 // AI v1 진입점: decide(PlayerView만 받음) → 행동 + 고민 시간 + 판단 메모 (overview 3.3)
+import { AI } from '../../config';
 import { COMBOS } from '../../engine/cards';
 import { evaluate } from '../../engine/evaluator';
 import type { PlayerView } from '../../engine/view';
@@ -104,9 +105,17 @@ export function decide(view: PlayerView, prof: AiProfile, mem: AiMemory, opts: D
     const lean = judgeLean(ctx, PERSONAS[prof.personaId].fish);
     if (lean && !leakFired) { probs = leanTo(options.map((o) => o.act), probs, lean); clearNote = lean.id; }
   }
+  // 2-2) 고수의 일관성: 레벨이 높을수록 확률을 날카롭게 (우세한 행동을 꾸준히, 계획과 반대인 드문 행동은 사라짐)
+  //  하수는 그대로 흐트러져 있어 짧게 쳐 봐도 레벨 차이가 보인다
+  const k = prof.level >= AI.sharpenV2.from ? 1 + AI.sharpenV2.perLevel * (prof.level - AI.sharpenV2.from + 1) : 1;
+  if (k > 1) {
+    const q = probs.map((x) => Math.pow(x, k));
+    const s = q.reduce((a, b) => a + b, 0);
+    if (s > 0) probs = q.map((x) => x / s);
+  }
   // 3) 안전장치
   const riverNuts = view.street === 'river' && !view.legal.canCheck ? isRiverNuts(view) : false;
-  const g = applyGuards(options, probs, ctx, { eq: view.street === 'river' ? eq : undefined, riverNuts, evCut: fx.evCut });
+  const g = applyGuards(options, probs, ctx, { eq: view.street === 'river' ? eq : undefined, riverNuts, evCut: Math.max(fx.evCut, AI.evCutMinV2) });
   probs = g.probs;
   // 4) 샘플링
   let r = rand(), pick = probs.length - 1;

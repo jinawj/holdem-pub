@@ -20,13 +20,21 @@ const R = makeRng(seed);
 const N = 6;
 
 // 테이블: 성향 섞어서 (사람다운지 보려면 다양하게), 레벨은 성향 범위 안 무작위
+//  --tier low  : 하수 테이블 (각 성향의 가장 낮은 레벨)
+//  --tier high : 고수 테이블 (솔버·레귤러·공격수 Lv9–10 + 바위 Lv7)
+const tier = arg('tier', 'mix');
+const TIER_IDS: Record<string, PersonaId[]> = {
+  low: ['station', 'beginner', 'maniac', 'station', 'beginner', 'nit'],
+  high: ['solver', 'reg', 'lag', 'reg', 'lag', 'nit'],
+};
 const profiles: AiProfile[] = Array.from({ length: N }, (_, i) => {
-  const id = (['reg', 'lag', 'solver', 'station', 'nit', 'beginner', 'maniac'] as PersonaId[])[(i + seed) % 7] ?? PERSONA_IDS[i];
+  const id = tier in TIER_IDS ? TIER_IDS[tier][i] : (['reg', 'lag', 'solver', 'station', 'nit', 'beginner', 'maniac'] as PersonaId[])[(i + seed) % 7] ?? PERSONA_IDS[i];
   const [lo, hi] = PERSONAS[id].lv;
-  return makeProfile(id, lo + R.int(hi - lo + 1), R.rand);
+  const lv = tier === 'low' ? lo + R.int(Math.min(2, hi - lo + 1)) : tier === 'high' ? (id === 'nit' ? hi : Math.max(lo, 9) + R.int(2)) : lo + R.int(hi - lo + 1);
+  return makeProfile(id, Math.min(hi, lv), R.rand);
 });
 
-const lines: string[] = [`# AI 핸드 리뷰 (${stackBB}BB, ${N}인, 블라인드 ${BB / 2}/${BB})`, '', '좌석: ' + profiles.map((p, i) => `P${i}=${profileLabel(p)}`).join(', '), ''];
+const lines: string[] = [`# AI 핸드 리뷰 (${stackBB}BB, ${N}인, 블라인드 ${BB / 2}/${BB})`, '', '좌석: ' + profiles.map((p, i) => `P${i}=${profileLabel(p)}${p.leaks.length ? `(릭: ${p.leaks.map((l) => l.id).join('·')})` : ''}`).join(', '), ''];
 let written = 0;
 for (let k = 0; written < want && k < want * 6; k++) {
   const button = k % N;
@@ -43,7 +51,9 @@ for (let k = 0; written < want && k < want * 6; k++) {
     const d = decide(makePlayerView(hs, seat, N), profiles[seat], mems[seat], { rand: R.rand, quick: true });
     const opts = d.memo.options.filter((o) => o.p >= 0.01).map((o) => `${o.key.replace('raise:', '레이즈')} ${Math.round(o.p * 100)}%`).join(' / ');
     chosen[idx] = d.type;
-    thoughts[idx] = `${d.memo.note ?? ''}${d.memo.habit ? ` [습관:${d.memo.habit}]` : ''} {${opts}}`;
+    const leaks = profiles[seat].leaks.map((l) => l.id);
+    const habitTxt = d.memo.habit ? d.memo.habit.split(',').map((x) => (leaks.includes(x) ? `릭:${x}` : `습관:${x}`)).join(',') : '';
+    thoughts[idx] = `${d.memo.note ?? ''}${habitTxt ? ` [${habitTxt}]` : ''}${d.memo.clear ? ` [고정:${d.memo.clear}]` : ''} {${opts}}`;
     return d;
   }, null, N);
   // 플랍까지 간 핸드만 (포스트플랍 판단을 보기 위해)

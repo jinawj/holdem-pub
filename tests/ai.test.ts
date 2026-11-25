@@ -94,3 +94,13 @@ describe('명확한 자리 (clarity)', () => {
     expect(q.reduce((a, b) => a + b, 0)).toBeCloseTo(1);
   });
 });
+
+import { drawInfo } from '../src/ai/v2/equity';
+import { parseCards } from '../src/engine/cards';
+describe('드로우 판정', () => {
+  const d = (h: string, b: string) => drawInfo(parseCards(h), parseCards(b));
+  it('한쪽이 막힌 A-K-Q-J는 거트샷', () => { expect(d('AdJh', '2dKcQs')).toMatchObject({ oesd: false, gutshot: true }); });
+  it('9-8 on T-7-2 는 양방향', () => { expect(d('9s8s', 'Td7c2h')).toMatchObject({ oesd: true }); });
+  it('A-2-3-4 휠 드로우는 거트샷', () => { expect(d('Ad2c', '3s4h9d')).toMatchObject({ oesd: false, gutshot: true }); });
+  it('더블 거트(9-7 on J-8-5, 6·T 둘 다)는 양방향과 같게', () => { expect(d('9c7c', 'Jd8h5s')).toMatchObject({ oesd: true }); });
+});
