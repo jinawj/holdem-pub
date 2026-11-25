@@ -1,6 +1,6 @@
 // 셀프플레이 시뮬레이터 (overview 3.11). 실행: npm run sim -- --hands 5000 [--full] [--seats 6]
 import { writeFileSync, mkdirSync } from 'node:fs';
-import { makeProfile, PERSONAS, PERSONA_IDS } from '../src/ai/v1';
+import { makeProfile, PERSONAS, PERSONA_IDS } from '../src/ai/v2';
 import { handKey, shuffledDeck } from '../src/engine/cards';
 import { seedFromNumber } from '../src/engine/rng';
 import { createTournament } from '../src/engine/tournament';

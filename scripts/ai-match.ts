@@ -1,13 +1,16 @@
 // 듀플리케이트 대결 (overview 3.14 ②). 같은 카드 배열로 좌석만 바꿔 두 번 → 패 운 상쇄
 // 실행: npm run ai:match [-- --pairs 1500 --stack 100]
 import { writeFileSync, mkdirSync } from 'node:fs';
-import { decide, makeProfile, newMemory, PERSONAS } from '../src/ai/v1';
-import type { AiProfile, PersonaId } from '../src/ai/v1';
+import { decide, makeProfile, newMemory, PERSONAS } from '../src/ai/v2';
+import type { AiProfile, PersonaId } from '../src/ai/v2';
+// 이전 버전(기준선): 새 버전이 나빠지지 않았는지 비교용
+import { decide as decideV1, makeProfile as makeProfileV1 } from '../src/ai/v1';
+
 import { startHand } from '../src/engine/hand';
 import { seedToString, seedFromNumber } from '../src/engine/rng';
 import { makePlayerView } from '../src/engine/view';
 import { newRunStats, runHand } from '../src/game/headless';
-import { arg, makeRng, mean, sd, table } from './lib';
+import { arg, flag, makeRng, mean, sd, table } from './lib';
 
 const pairs = +arg('pairs', '1500');
 const stackBB = +arg('stack', '100');
@@ -16,7 +19,8 @@ const BB = 200;
 /** A 기준 bb/핸드 결과 (듀플리케이트 쌍 합) */
 type Prof = AiProfile | (() => AiProfile);
 const get = (p: Prof) => (typeof p === 'function' ? p() : p);
-function duel(pa: Prof, pb: Prof, seedBase: number): number[] {
+type Decider = (view: any, prof: any, mem: any, opts: any) => any;
+function duel(pa: Prof, pb: Prof, seedBase: number, da: Decider = decide, db: Decider = decide): number[] {
   let a = get(pa), b = get(pb);
   const out: number[] = [];
   const rs = newRunStats();
@@ -27,6 +31,7 @@ function duel(pa: Prof, pb: Prof, seedBase: number): number[] {
     let pairSum = 0;
     for (const swap of [false, true]) {
       const profs = swap ? [b, a] : [a, b];
+      const decs = swap ? [db, da] : [da, db];
       const aSeat = swap ? 1 : 0;
       // 각 AI의 난수 흐름을 좌석과 무관하게 같게 → 같은 상황이면 같은 선택 (운 추가 상쇄)
       const ra = makeRng(seedBase * 7919 + i * 2), rb = makeRng(seedBase * 7919 + i * 2 + 1);
@@ -37,7 +42,7 @@ function duel(pa: Prof, pb: Prof, seedBase: number): number[] {
         players: [0, 1].map((s) => ({ seat: s, name: 'P' + s, stack: stackBB * BB })),
       });
       const mems = [newMemory(), newMemory()];
-      runHand(h, (hs, seat) => decide(makePlayerView(hs, seat, 2), profs[seat], mems[seat], { rand: rands[seat], quick: true, recallEnabled: false }), rs, 2);
+      runHand(h, (hs, seat) => decs[seat](makePlayerView(hs, seat, 2), profs[seat], mems[seat], { rand: rands[seat], quick: true, recallEnabled: false }), rs, 2);
       const p = h.players.find((x) => x.seat === aSeat)!;
       pairSum += (p.stack - p.startStack) / BB;
     }
@@ -57,6 +62,20 @@ const t0 = Date.now();
 const R0 = makeRng(99);
 const mk = (id: PersonaId, lv: number) => () => makeProfile(id, lv, R0.rand);
 console.log(`=== 듀플리케이트 대결: 매치당 ${pairs}쌍(${pairs * 2}핸드), 헤즈업 ${stackBB}BB ===\n`);
+
+// 0) 버전 비교: 같은 성향·레벨의 새 AI(v2) vs 이전 AI(v1). 양수면 v2가 더 잘함
+{
+  const R1 = makeRng(77);
+  const vlist: [PersonaId, number][] = [['solver', 10], ['reg', 8], ['lag', 8], ['nit', 6], ['reg', 5], ['station', 3], ['beginner', 2], ['maniac', 4]];
+  const vrows: any[] = [];
+  vlist.forEach(([id, lv], i) => {
+    const s = summarize(duel(() => makeProfile(id, lv, R1.rand), () => makeProfileV1(id, lv, R1.rand) as any, 500 + i, decide, decideV1));
+    vrows.push([`${PERSONAS[id].name} Lv${lv}`, s.bb100, `[${s.lo.toFixed(1)}, ${s.hi.toFixed(1)}]`, s.sig.replace('우세', 'v2 우세').replace('열세', 'v2 열세')]);
+  });
+  console.log('0) 버전 비교 v2 vs v1 (같은 성향·레벨, v2 기준 bb/100)');
+  console.log(table(vrows, ['AI', 'bb/100', '신뢰구간', '판정']));
+  if (flag('version')) { console.log(`소요 ${(Date.now() - t0) / 1000}초`); process.exit(0); }
+}
 
 // 1) 성향 서열: 기준 상대(레귤러 Lv6) 대비
 const baseline = mk('reg', 6);

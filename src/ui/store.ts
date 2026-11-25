@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { AiSpeed, AI_SPEED_MULT, Difficulty, DEFAULT_LEVEL_MINUTES, SAVE_VERSION, START_STACK_MULT } from '../config';
-import { createAiProfiles, newMemory, updateMemory, wantsToShow, makeProfile } from '../ai/v1';
-import type { AiMemory, AiProfile, AiDecision } from '../ai/v1';
+import { createAiProfiles, newMemory, updateMemory, wantsToShow, makeProfile } from '../ai/v2';
+import type { AiMemory, AiProfile, AiDecision } from '../ai/v2';
 import { applyMove, IllegalActionError } from '../engine/hand';
 import { aliveSeats, createTournament, finishHand, forfeit, startNextHand, TournamentState, LEVELS } from '../engine/tournament';
 import type { Move } from '../engine/types';

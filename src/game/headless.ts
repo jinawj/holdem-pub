@@ -1,8 +1,8 @@
 // 화면 없이 AI끼리 핸드/토너먼트 진행 (셀프플레이, CLI, 대결, 시험지 공용)
-import { decide, newMemory, updateMemory } from '../ai/v1';
-import type { AiDecision, AiMemory, AiProfile } from '../ai/v1';
-import { buildContext } from '../ai/v1/context';
-import { forbidden } from '../ai/v1/guards';
+import { decide, newMemory, updateMemory } from '../ai/v2';
+import type { AiDecision, AiMemory, AiProfile } from '../ai/v2';
+import { buildContext } from '../ai/v2/context';
+import { forbidden } from '../ai/v2/guards';
 import { COMBOS } from '../engine/cards';
 import { evaluate } from '../engine/evaluator';
 import { applyMove, IllegalActionError, legalActions } from '../engine/hand';

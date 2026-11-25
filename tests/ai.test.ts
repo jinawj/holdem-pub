@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assignLevels, createAiProfiles, decide, isFish, newMemory, makeProfile, PERSONAS } from '../src/ai/v1';
+import { assignLevels, createAiProfiles, decide, isFish, newMemory, makeProfile, PERSONAS } from '../src/ai/v2';
 import { DIFFICULTY, Difficulty, maxFish } from '../src/config';
 import { makePlayerView } from '../src/engine/view';
 import { Rng, seedFromNumber } from '../src/engine/rng';

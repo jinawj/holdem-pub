@@ -1,8 +1,8 @@
 // 엔진 결과 → AI 기억 갱신용 요약 / 핸드 기록 (UI·시뮬레이터 공용)
 import type { HandState } from '../engine/types';
-import type { HandSummaryForAi } from '../ai/v1';
+import type { HandSummaryForAi } from '../ai/v2';
 import { categoryOf, evaluate } from '../engine/evaluator';
-import type { DecisionMemo } from '../ai/v1';
+import type { DecisionMemo } from '../ai/v2';
 import type { PlayerView } from '../engine/view';
 
 export function summaryFor(h: HandState, seat: number): HandSummaryForAi {

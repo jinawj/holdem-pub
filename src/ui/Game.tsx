@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ACTION_GAP_MS, CHIP_ANIM_MS, HAND_END_PAUSE_MS, MIN_THINK_MS } from '../config';
 import { askAi } from '../ai/client';
-import { newMemory } from '../ai/v1';
+import { newMemory } from '../ai/v2';
 import { centerPots, legalActions, actionLabel } from '../engine/hand';
 import { describeHand } from '../engine/evaluator';
 import { aliveSeats, currentLevel, LEVELS } from '../engine/tournament';

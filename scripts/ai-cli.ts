@@ -4,8 +4,8 @@
 //   npm run ai:cli -- spot <문항 id> [--persona reg] [--level 9]
 //   npm run ai:cli -- report <신고 파일.json>    (복기 화면에서 내보낸 신고를 다시 계산)
 import { readFileSync } from 'node:fs';
-import { createAiProfiles, decide, makeProfile, newMemory, profileLabel, PERSONA_IDS } from '../src/ai/v1';
-import type { PersonaId } from '../src/ai/v1';
+import { createAiProfiles, decide, makeProfile, newMemory, profileLabel, PERSONA_IDS } from '../src/ai/v2';
+import type { PersonaId } from '../src/ai/v2';
 import { cardToString } from '../src/engine/cards';
 import { actionLabel } from '../src/engine/hand';
 import { createTournament } from '../src/engine/tournament';

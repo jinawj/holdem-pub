@@ -1,7 +1,7 @@
 // AI 시험지 (overview 3.14 ①). 실행: npm run ai:spots [-- --trials 150]
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { decide, makeProfile, newMemory, PERSONAS, PERSONA_IDS } from '../src/ai/v1';
-import type { PersonaId } from '../src/ai/v1';
+import { decide, makeProfile, newMemory, PERSONAS, PERSONA_IDS } from '../src/ai/v2';
+import type { PersonaId } from '../src/ai/v2';
 import { makePlayerView } from '../src/engine/view';
 import { buildSpot, SpotDef } from '../src/game/spot';
 import { arg, makeRng } from './lib';
