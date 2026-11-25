@@ -11,7 +11,7 @@ import type { AiMemory, AiProfile, Option } from './types';
 const sig = (x: number) => 1 / (1 + Math.exp(-x));
 const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 
-export interface PostOut extends PolicyOut { eqRes: EquityResult; base: number[]; evDist: number[] }
+export interface PostOut extends PolicyOut { eqRes: EquityResult; base: number[]; evDist: number[]; read: Read; planBetP?: number }
 
 export function betSizesFor(ctx: Ctx, prof: AiProfile): number[] {
   let sizes: number[];
@@ -37,6 +37,7 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
   // 사람식 상황 읽기 (내 패 분류·주도권·보드·벳 크기)
   const rd = readHand(ctx, eq);
   let thought = '';
+  let planBetP: number | undefined;
   const n = ctx.numOpp;
   const pot = ctx.pot;
   const river = ctx.street === 'river';
@@ -73,6 +74,7 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
 
     // ---- 사람식 계획: "내 패 + 주도권 + 보드" 로 벳할지 정함 (v2) ----
     const pBet = planBet(rd, ctx, p, aggr, n);
+    planBetP = pBet;
     thought = `${rd.desc} · ${rd.facingAggressorFirst ? '레이저 앞이라 체크 위주' : rd.initiative ? '주도권 있음' : '주도권 없음'}${rd.scareCard ? ' · 무서운 카드' : ''} → 벳 ${Math.round(pBet * 100)}%`;
     base.push(1 - pBet);
     // 크기 선택
@@ -128,7 +130,7 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
   const w = clamp(p.evWeight * 0.5, 0, 1);
   const probs = base.map((b, i) => (b / bsum) * (1 - w) + evDist[i] * w);
   return {
-    options, probs, equity: eq, eqRes, base: base.map((b) => b / bsum), evDist,
+    options, probs, equity: eq, eqRes, base: base.map((b) => b / bsum), evDist, read: rd, planBetP,
     note: `${thought} (에퀴티 ${(eq * 100).toFixed(0)}%, 상대 ${n}명)`,
   };
 }
@@ -180,7 +182,8 @@ function planDefense(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, level:
     case 'medium': cont = small ? 0.9 : polar ? (river ? 0.45 : 0.6) : 0.75; raise = 0.03; why = '중간 패: 크기 보고 판단'; break;
     case 'weak': cont = small ? 0.55 : polar ? 0.12 : 0.3; why = '약한 패: 작은 벳만 따라감'; break;
     case 'draw': cont = ctx.potOdds <= 0.35 || ctx.effBB > 60 ? 0.9 : 0.55; raise = 0.18; why = '드로우: 가격 보고 따라감'; break;
-    default: cont = small && !river && ctx.ip ? 0.2 : 0.03; raise = river ? 0.03 : 0.05; why = '에어: 대부분 폴드';
+    // 에어: 작은 벳엔 백도어·오버카드로 가끔 띄워 봄(플로트), 큰 벳·리버엔 대부분 폴드
+    default: cont = small && !river ? (ctx.ip ? (rd.backdoor ? 0.5 : 0.25) : (rd.backdoor ? 0.3 : 0.1)) : 0.03; raise = river ? 0.03 : 0.05; why = cont > 0.2 ? '에어지만 작은 벳이라 한 번 띄워 봄' : '에어: 대부분 폴드';
   }
   // 고수: 큰 벳에도 블러프가 섞여 있다는 걸 앎 → 중간·약한 패로 히어로콜 (최소 수비 빈도 감각)
   if (polar && (c === 'medium' || c === 'weak')) {

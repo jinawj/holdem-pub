@@ -74,6 +74,19 @@ export function decide(view: PlayerView, prof: AiProfile, mem: AiMemory, opts: D
   const habitList = [...prof.habits, ...prof.leaks];
   const h = applyHabits({ ctx, eq: eq ?? estimatePreflopEq(ctx), options, probs, mem }, habitList);
   probs = h.probs;
+  // 역할 지키기: 레이저 앞(동크 자리)에서는 계획한 벳 비율 이상으로 벳하지 않음 (계산·습관이 끌어올린 벳을 체크로)
+  //  단, 피쉬 성향은 동크가 실제 하수의 특징이라 그대로 둠
+  const post = pol as { read?: { facingAggressorFirst: boolean }; planBetP?: number };
+  if (view.street !== 'preflop' && post.read?.facingAggressorFirst && post.planBetP !== undefined && !PERSONAS[prof.personaId].fish) {
+    const ci = options.findIndex((o) => o.act === 'check');
+    const betMass = probs.reduce((a, p, i) => a + (options[i].act === 'raise' ? p : 0), 0);
+    const cap = Math.min(1, post.planBetP * 1.3);
+    if (ci >= 0 && betMass > cap && betMass > 0) {
+      const k = cap / betMass;
+      probs = probs.map((p, i) => (options[i].act === 'raise' ? p * k : p));
+      probs[ci] += betMass - cap;
+    }
+  }
   // 2) 실력 온도 (실수)
   probs = applyTemperature(probs, prof, options);
   // 3) 안전장치

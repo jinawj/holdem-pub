@@ -38,7 +38,8 @@ export function applyGuards(options: Option[], probs: number[], ctx: Ctx, g: Gua
   if (evs.every((e) => e !== undefined)) {
     const best = Math.max(...(evs as number[]));
     const cut = best - g.evCut * Math.max(ctx.pot, 1);
-    const q = p.map((x, i) => ((evs[i] as number) < cut ? 0 : x));
+    // v2: 체크는 절대 '말도 안 되는' 행동이 아니므로 기대값 컷에서 빼지 않음 (강한 패 동크 강제 방지)
+    const q = p.map((x, i) => ((evs[i] as number) < cut && options[i].act !== 'check' ? 0 : x));
     if (q.some((x) => x > 0)) {
       if (q.some((x, i) => x !== p[i])) applied.push('기대값 손실 큰 행동 제거');
       p = norm(q);
