@@ -147,7 +147,7 @@ function planBet(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, n: number)
   } else if (rd.initiative) {
     if (S === 'flop') {
       // C벳: 드라이 보드는 레인지 전체로 자주, 웻 보드는 덜, 멀티웨이는 확 줄임
-      const cbet = (dry ? 0.78 : wet ? 0.5 : 0.64) * (ctx.ip ? 1 : 0.85) * (HU ? 1 : 0.6) + p.cbetFreq;
+      const cbet = (dry ? 0.78 : wet ? 0.5 : 0.64) * (ctx.ip ? 1 : 0.85) * (HU ? 1 : dry ? 0.8 : 0.6) + p.cbetFreq;
       pb = ({ monster: dry ? 0.7 : 0.9, strong: 0.88, medium: HU ? cbet : 0.35, weak: cbet * 0.85, draw: 0.75, air: cbet * (rd.backdoor ? 1 : 0.8) } as const)[c];
     } else if (S === 'turn') {
       // 배럴: 밸류·드로우는 계속, 블러프는 무서운 카드가 떨어졌을 때
@@ -162,7 +162,7 @@ function planBet(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, n: number)
     pb = ({ monster: 0.72, strong: 0.7, medium: stab ? 0.35 : 0.15, weak: stab ? 0.3 : 0.05, draw: 0.5, air: stab ? (S === 'river' ? (rd.blocker ? 0.4 : 0.25) : 0.32) : 0.05 } as const)[c];
   }
   const bluffy = c === 'weak' || c === 'air' || c === 'draw';
-  if (bluffy) pb *= HU ? 1 : 0.5;
+  if (bluffy) pb *= HU ? 1 : rd.initiative && S === 'flop' && dry ? 0.8 : 0.5;
   if (bluffy) pb = Math.min(0.95, pb * Math.max(0.15, p.bluffMult));
   pb = aggr >= 0 ? pb + (1 - pb) * aggr * 0.25 : pb * (1 + aggr * 0.6);
   return clamp(pb, 0, 0.97);
@@ -185,6 +185,13 @@ function planDefense(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, level:
     // 에어: 작은 벳엔 백도어·오버카드로 가끔 띄워 봄(플로트), 큰 벳·리버엔 대부분 폴드
     default: cont = small && !river ? (ctx.ip ? (rd.backdoor ? 0.5 : 0.25) : (rd.backdoor ? 0.3 : 0.1)) : 0.03; raise = river ? 0.03 : 0.05; why = cont > 0.2 ? '에어지만 작은 벳이라 한 번 띄워 봄' : '에어: 대부분 폴드';
   }
+  // 콜링스테이션 기질(끈적함): A하이·거트샷·약한 페어로도 웬만하면 따라감, 체크레이즈는 강할 때만
+  if (p.stickiness >= 0.5 && (c === 'weak' || c === 'air' || c === 'medium') && (c !== 'air' || rd.cls === 'air' && (ctx.gutshot || ctx.view.holeCards.some((x) => (x >> 2) === 12)))) {
+    cont = Math.max(cont, river && c === 'air' ? 0.35 : 0.6); why = '일단 따라가 봄 (스테이션)';
+  }
+  if (p.aggression < 0 && c !== 'monster') raise = 0;
+  // 니트: 큰 팟 레이즈는 몬스터만
+  if (p.foldToAggro >= 0.4 && c !== 'monster') raise = 0;
   // 고수: 큰 벳에도 블러프가 섞여 있다는 걸 앎 → 중간·약한 패로 히어로콜 (최소 수비 빈도 감각)
   if (polar && (c === 'medium' || c === 'weak')) {
     const hero = level >= 9 ? (c === 'medium' ? 0.7 : rd.blocker ? 0.45 : 0.25) : level >= 7 ? (c === 'medium' ? 0.6 : rd.blocker ? 0.3 : 0.12) : 0;

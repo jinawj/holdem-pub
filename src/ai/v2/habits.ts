@@ -40,7 +40,7 @@ const draw = (c: Ctx) => c.street !== 'river' && (c.flushDraw || c.oesd);
 export const HABITS: Record<string, Habit> = {
   // 레귤러
   dryCbetThird: (h) => (h.ctx.street === 'flop' && h.ctx.isPFA && h.ctx.numOpp === 1 && !h.ctx.facingBet && h.ctx.wet < 0.3 ? toAct(h, 'raise', 'small') : null),
-  riverBigBetFold: (h) => (h.ctx.street === 'river' && h.ctx.facingBet && h.ctx.lastBetFrac >= 0.75 && h.eq < 0.4 ? toAct(h, 'fold') : null), // v2: 정말 약할 때만
+  riverBigBetFold: (h) => (h.ctx.street === 'river' && h.ctx.facingBet && h.ctx.lastBetFrac >= 0.75 && h.ctx.madeCat === 0 && h.eq < 0.4 ? toAct(h, 'fold') : null), // v2: 노페어일 때만 (페어 있으면 블러프 캐치 고민)
   threeBetStrongOrA5s: (h) => (h.ctx.street === 'preflop' && h.ctx.raisesPre === 1 && h.ctx.pct > 5 && !isWheelAceSuited(h.ctx.key) ? moveRaise(h, 'call') : null),
   // 공격수
   wideLatePosition: (h) => (h.ctx.street === 'preflop' && h.ctx.raisesPre === 0 && !h.ctx.view.legal.canCheck && h.ctx.behind <= 3 && h.ctx.pct < openPctFor(h.ctx.behind) * 1.5 ? toAct(h, 'raise', 'small') : null),

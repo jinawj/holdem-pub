@@ -36,11 +36,13 @@ for (let k = 0; written < want && k < want * 6; k++) {
     players: Array.from({ length: N }, (_, s) => ({ seat: s, name: 'P' + s, stack: stackBB * BB })),
   });
   const thoughts: Record<number, string> = {};
+  const chosen: Record<number, string> = {};
   const mems = profiles.map(() => newMemory());
   runHand(h, (hs, seat) => {
     const idx = hs.actions.length;
     const d = decide(makePlayerView(hs, seat, N), profiles[seat], mems[seat], { rand: R.rand, quick: true });
-    const opts = d.memo.options.filter((o) => o.p >= 0.05).map((o) => `${o.key.replace('raise:', '레이즈')} ${Math.round(o.p * 100)}%`).join(' / ');
+    const opts = d.memo.options.filter((o) => o.p >= 0.01).map((o) => `${o.key.replace('raise:', '레이즈')} ${Math.round(o.p * 100)}%`).join(' / ');
+    chosen[idx] = d.type;
     thoughts[idx] = `${d.memo.note ?? ''}${d.memo.habit ? ` [습관:${d.memo.habit}]` : ''} {${opts}}`;
     return d;
   }, null, N);
@@ -56,7 +58,9 @@ for (let k = 0; written < want && k < want * 6; k++) {
   h.actions.forEach((a, i) => {
     if (a.type === 'ante' || a.type === 'sb' || a.type === 'bb') return;
     if (a.street !== cur) { cur = a.street; lines.push(`- **${{ preflop: '프리플랍', flop: '플랍', turn: '턴', river: '리버' }[a.street]}** ${boardAt[a.street]}`); }
-    lines.push(`  - P${a.seat}(${PERSONAS[profiles[a.seat].personaId].name}Lv${profiles[a.seat].level}) ${actionLabel(a)} — ${thoughts[i] ?? ''}`);
+    const typ = a.type === 'bet' ? 'raise' : a.type;
+    const bad = chosen[i] && chosen[i] !== typ ? ` ⚠불일치(AI 선택 ${chosen[i]})` : '';
+    lines.push(`  - P${a.seat}(${PERSONAS[profiles[a.seat].personaId].name}Lv${profiles[a.seat].level}) ${actionLabel(a)}${bad} — ${thoughts[i] ?? ''}`);
   });
   const r = h.result!;
   lines.push(`- 결과: ${Object.entries(r.won).map(([s, v]) => `P${s} +${v}`).join(', ')}${r.uncontested ? ' (모두 폴드)' : ' (쇼다운 ' + r.shown.map((s) => `P${s}`).join(',') + ')'}`);

@@ -33,6 +33,11 @@ export function humanizeSize(to: number, ctx: Ctx, prof: AiProfile, rand: () => 
   t = Math.round(t / unit) * unit;
   if (t < L.minRaiseTo) t = L.minRaiseTo;
   if (t > L.maxRaiseTo || L.maxRaiseTo - t < unit) t = L.maxRaiseTo;
+  // v2: 포스트플랍 벳(받은 벳 없음)은 팟의 20% 이상 — 셋·풀하우스로 1BB 벳 같은 어색한 크기 방지
+  if (ctx.street !== 'preflop' && L.currentBet === 0 && t < L.maxRaiseTo) {
+    const floor = Math.ceil((0.2 * ctx.pot) / unit) * unit;
+    if (t < floor) t = Math.min(L.maxRaiseTo, Math.max(L.minRaiseTo, floor));
+  }
   return t;
 }
 

@@ -139,7 +139,8 @@ export function preflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: ()
     }
     // 깊은 스택(100BB 넘음)일수록 뒤쪽 포지션 오픈을 넓힘
     const deepOpen = ctx.effBB > 100 && ctx.behind <= 3 ? 1.15 : ctx.effBB > 60 && ctx.behind <= 3 ? 1.07 : 1;
-    let o = openPctFor(ctx.behind) * loose * gear(ctx, prof).openMult * deepOpen;
+    const skilledEP = prof.level >= 8 && prof.personaId !== 'nit' && ctx.behind >= 4 ? 1.15 : 1;
+    let o = openPctFor(ctx.behind) * loose * gear(ctx, prof).openMult * deepOpen * skilledEP;
     if (limpers > 0) o *= 0.55;
     const prBase = sig((o - pct) / w);
     // 수동적인 성향은 레이즈 대신 림프
@@ -152,7 +153,7 @@ export function preflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: ()
     const size = (ctx.behind === 1 ? 3 : 2.2 + deep + limpers) * bb;
     return {
       options: [raise(size), call, fold], probs: [pr, pl, Math.max(0, 1 - pr - pl)],
-      note: `오픈 범위 ${o.toFixed(0)}% (뒤에 ${ctx.behind}명)`,
+      note: `오픈 범위 ${Math.min(100, o).toFixed(0)}% (뒤에 ${ctx.behind}명)`,
     };
   }
 
@@ -170,7 +171,7 @@ export function preflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: ()
     // BB는 이미 낸 블라인드 덕에 싸게 콜 → 콜 가격이 쌀수록 넓게 방어. 깊으면 인포지션 콜드콜도 넓게 (셋·수딧 커넥터 노림)
     const need = ctx.toCall / Math.max(1, ctx.pot + ctx.toCall);
     const deep = Math.max(0, Math.min(1, (ctx.effBB - 40) / 100));
-    const ipMult = isBB ? Math.max(1.35, Math.min(2.3, 0.33 / Math.max(0.05, need))) : isSB ? 0.45 : ctx.behind <= 2 ? 1.1 + 0.3 * deep : 0.9 + 0.2 * deep;
+    const ipMult = isBB ? Math.max(1.35, Math.min(2.3, 0.33 / Math.max(0.05, need))) : isSB ? 0.7 : ctx.behind <= 2 ? 1.1 + 0.3 * deep : 0.9 + 0.2 * deep;
     let band = AI.callRatio * o * ipMult * loose * (1 + p.stickiness * 0.5) * (1 - Math.max(0, aggr) * 0.2);
     // BB: "이미 1BB 냈고 이 가격이면 웬만하면 본다" — 상대 오픈 범위보다 넓게 방어 (가격이 쌀수록 더 넓게)
     if (isBB) band = Math.max(band, o * (1.2 + 1.5 * Math.max(0, 0.33 - need) / 0.33) * Math.min(1.3, loose) - v);
