@@ -71,6 +71,8 @@ export const AI = {
   evCutMinV2: 0.3,
   /** v2: 이 확률 미만 행동은 고르지 않음 (v1은 guards.tailCut 0.03) */
   tailCutV2: 0.07,
+  /** v2: 벳을 받았을 때(몬스터 제외) 최종 레이즈 ≤ 계획 레이즈 × mult + add */
+  raiseCapV2: { mult: 1.5, add: 0.03 },
   /** v2: 고수 일관성. 레벨 from 이상에서 확률을 (1 + perLevel×(레벨−from+1))제곱 후 정규화 (Lv10 ≈ 1.75제곱) */
   sharpenV2: { from: 6, perLevel: 0.15 },
   /** v2: 고수(Lv7+, 비피쉬) 3벳 범위 배수 */

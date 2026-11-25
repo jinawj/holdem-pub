@@ -117,3 +117,12 @@ describe('보드 족보 판별', () => {
     expect(ctx.madeCat).toBe(0);
   });
 });
+
+describe('보드가 플레이하는 패', () => {
+  it('리버 보드 풀하우스(777 55)에 내 카드가 안 쓰이면 내 패 없음', () => {
+    let h = mkHand({ stacks: [40000, 40000], button: 0, holes: { 0: 'AhKs', 1: '2c3d' }, board: '7d7s7h5d5c' });
+    for (let i = 0; i < 7; i++) h = applyMove(h, { type: i === 0 ? 'call' : 'check' } as any);
+    expect(h.street).toBe('river');
+    expect(buildContext(makePlayerView(h, 1, 2)).madeCat).toBe(0);
+  });
+});

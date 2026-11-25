@@ -57,8 +57,8 @@ function postflop(ctx: Ctx): Clear | null {
     // 원페어(보드 페어 투페어 포함)로 레이즈 전쟁 금지: 레이즈를 받은 뒤 다시 올리지 않음 (깊은 스택)
     const onePair = ctx.madeCat === 1 || (ctx.madeCat === 2 && ctx.paired);
     if (onePair && ctx.raisesThisStreet >= 2 && !bigDraw && ctx.spr > 1.5) return { id: '원페어 레이즈 전쟁 금지', ok: ['fold', 'call'] };
-    // 리버 노페어로 큰 벳 콜 금지 (블러프 레이즈는 허용)
-    if (river && ctx.madeCat === 0 && ctx.lastBetFrac >= 0.5) return { id: '리버 노페어 큰 벳 폴드', ok: ['fold', 'raise'] };
+    // 리버 노페어로 큰 벳: 폴드 (리버 블러프 레이즈는 사람 눈에 이상해 보여 막음)
+    if (river && ctx.madeCat === 0 && ctx.lastBetFrac >= 0.5) return { id: '리버 노페어 큰 벳 폴드', ok: ['fold'] };
     // 멀티웨이 에어(드로우도 없음)로 벳 따라가기 금지
     if (ctx.madeCat === 0 && !drawing && ctx.numOpp >= 2 && ctx.lastBetFrac >= (ctx.street === 'flop' ? 0.5 : 0.33)) return { id: '멀티웨이 에어 폴드', ok: ['fold'] };
     // 좋은 드로우 + 싼 가격은 계속

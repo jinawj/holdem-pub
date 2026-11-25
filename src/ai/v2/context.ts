@@ -77,6 +77,8 @@ export function buildContext(view: PlayerView): Ctx {
     madeCat = categoryOf(all);
     boardCat = categoryOf(evaluate(view.board));
     if (madeCat === boardCat && boardCat <= 3) madeCat = 0; // 보드 족보 (보드 페어·투페어·트립스는 내 패가 아님)
+    // 리버에서 보드 5장이 그대로 최고 패(내 카드가 안 쓰임: 보드 풀하우스·스트레이트 등) → 내 패 없음
+    if (view.board.length === 5 && all === evaluate(view.board)) madeCat = 0;
     const boardRanks = view.board.map(rankOf).sort((a, b) => b - a);
     const hr = [rankOf(h1), rankOf(h2)];
     topPair = madeCat === 1 && hr.includes(boardRanks[0]);

@@ -47,6 +47,7 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
   const options: Option[] = [];
   const base: number[] = [];
   let vetoRaise = false; // 사람식 판단이 '레이즈는 안 한다'고 정한 경우 계산이 되살리지 못하게
+  let raiseCap: number | undefined; // 벳을 받았을 때 최종 레이즈 상한
 
   /** 평균적인 상대가 계속할 비율 */
   const contFrac = (b: number, P: number) => clamp((P / (P + b)) * 0.95, 0.08, 0.95);
@@ -120,6 +121,7 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
     base.push(Math.max(0, 1 - pCall - pRaise), pCall);
     if (raiseOpt) base.push(pRaise);
     vetoRaise = d.noRaise;
+    if (rd.cls !== 'monster') raiseCap = Math.min(1, pRaise * AI.raiseCapV2.mult + AI.raiseCapV2.add);
   }
 
   // ---- EV 전략과 섞기 ----
@@ -133,6 +135,12 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
   // 실력이 높을수록 레인지·계산을 더 믿음 (Lv1 약 15% → Lv10 약 50%), 낮을수록 감·습관 위주
   const w = clamp(p.evWeight * 0.5 + (prof.level - 1) * 0.04, 0, 0.7);
   let probs = base.map((b, i) => (b / bsum) * (1 - w) + evDist[i] * w);
+  if (raiseCap !== undefined && !vetoRaise) {
+    // 벳을 받았을 때 레이즈는 사람식 계획의 1.5배(+3%p)까지만 (계산이 원페어·에어 레이즈를 40~60%로 끌어올리던 문제)
+    const ri = options.findIndex((o) => o.act === 'raise');
+    const ci = options.findIndex((o) => o.act === 'call');
+    if (ri >= 0 && ci >= 0 && probs[ri] > raiseCap) { probs[ci] += probs[ri] - raiseCap; probs[ri] = raiseCap; }
+  }
   if (vetoRaise) {
     // 레이즈 몫은 콜로 (계산이 원페어 리레이즈·올인을 끌어올리는 것 방지)
     const ci = options.findIndex((o) => o.act === 'call');

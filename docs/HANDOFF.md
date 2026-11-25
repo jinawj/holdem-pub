@@ -18,7 +18,7 @@
 |---|---|
 | PC에서 실행 | `npm run dev` |
 | 같은 와이파이 폰에서 | `npm run dev:phone` → 출력된 Network 주소 |
-| 단위 테스트(엔진·AI) | `npm test` (48개) |
+| 단위 테스트(엔진·AI) | `npm test` (49개) |
 | 모바일 화면 점검 | `npx playwright test mobile-audit` (12크기×6/8/10인 + 올인 쇼다운, 약 5분) |
 | 전체 화면 테스트 | `npm run e2e` |
 | AI 시험지 | `npm run ai:spots` (35문항 142건, 현재 100%) |
