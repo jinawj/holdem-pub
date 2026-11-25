@@ -76,7 +76,8 @@ export function buildRange(view: PlayerView, seat: number, opts: RangeOpts): Ran
           if (a.allIn && stackBB <= 18 && raises === 0 && hasPushTable(stackBB)) {
             // 첫 올인: 직접 계산한 푸시 균형 표 기준 (경계는 부드럽게)
             const anteBB = view.level.ante / bb;
-            f = (_p, i) => { const m = pushMargin(COMBO_KEYS[i], behind, stackBB, anteBB); return m === null ? 0.5 : sig(m / 0.3); };
+            // 경계 폭은 좁게: 폭이 넓으면 올인 안 하는 수많은 쓰레기 패에 가중치가 붙어 범위가 2배로 넓어짐 (UTG 10BB 14%→30%)
+            f = (_p, i) => { const m = pushMargin(COMBO_KEYS[i], behind, stackBB, anteBB); return m === null ? 0.5 : sig(m / AI.pushRangeEdgeV2); };
           } else if (a.allIn && stackBB <= 18) {
             const pp = raises === 0 ? pushPctFor(stackBB, behind) : Math.max(4, lastOpenPct * 0.45);
             f = (p) => sig((pp - p) / 3);

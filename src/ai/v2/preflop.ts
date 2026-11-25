@@ -217,7 +217,9 @@ function evMode(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: () => number, qu
   const L = ctx.view.legal;
   const fx = levelFx(prof.level);
   const villain = ctx.lastPreRaiser ?? ctx.oppSeats[0];
-  const range = buildRange(ctx.view, villain, { thinking: fx.rangeWeight <= 0 ? 'none' : fx.rangeWeight >= 1 ? 'full' : 'rough', weight: fx.rangeWeight });
+  // 하수도 '올인이면 센 패'라는 감은 있음: 범위 반영을 최소 AI.allInReadMinV2 만큼 (아무 패 상대로 계산하면 올인에 60~70% 콜)
+  const rw = Math.max(fx.rangeWeight, AI.allInReadMinV2);
+  const range = buildRange(ctx.view, villain, { thinking: rw >= 1 ? 'full' : 'rough', weight: rw });
   const n = quick ? AI.preflopMcSamples.quick : AI.preflopMcSamples.normal;
   let eq = equityVsRanges(ctx.view.holeCards, [], [range], n, rand).eq;
   const others = ctx.oppSeats.length - 1;
@@ -236,7 +238,8 @@ function evMode(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: () => number, qu
     }
   }
   // 스타일: 루즈하거나 끈적하면 콜 쪽으로
-  const stick = (loose - 1) * 0.04 + prof.p.stickiness * 0.03;
+  // 니트(올인 앞에서 겁먹음)는 콜을 덜, 루즈·끈적하면 더
+  const stick = (loose - 1) * 0.04 + prof.p.stickiness * 0.03 - Math.max(0, prof.p.foldToAggro) * AI.nitAllInFoldV2;
   const temp = fx.evTemp;
   const vals = options.map((o) => (o.ev ?? 0) / Math.max(pot, 1) + (o.act === 'call' ? stick : 0));
   const mx = Math.max(...vals);

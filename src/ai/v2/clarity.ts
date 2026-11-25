@@ -30,6 +30,8 @@ function preflop(ctx: Ctx): Clear | null {
   if (facing && (PREMIUM_ALWAYS.includes(ctx.key) || (PREMIUM.includes(ctx.key) && ctx.raisesPre <= 2))) {
     return { id: '프리미엄 폴드 금지', ok: ['call', 'raise'] };
   }
+  // 쓰레기 패(하위 35%)로 프리플랍 올인 콜 금지 (8BB 이상, 콜이 스택 대부분일 때)
+  if (facing && ctx.pct >= 65 && ctx.effBB >= 8 && ctx.toCall >= 0.5 * (L.stack + L.committed)) return { id: '쓰레기 패 올인 콜 금지', ok: ['fold'] };
   // 아래는 깊은 스택에서만 (짧으면 푸시/폴드 표가 정함)
   if (ctx.effBB < 15) return null;
   // 4벳 이상을 받은 비프리미엄 패: 플랫 콜 금지 (폴드 또는 올인 5벳)
