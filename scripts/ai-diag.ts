@@ -10,7 +10,7 @@ import { cardToString } from '../src/engine/cards';
 import { arg, makeRng, table } from './lib';
 
 const level = +arg('level', '10'), pairs = +arg('pairs', '3000'), opp = arg('opp', 'v2');
-const BB = 200, stack = 100;
+const BB = 200, stack = +arg('stack', '100'), anteBB = +arg('ante', '0');
 const R = makeRng(3);
 const cnt: Record<string, { n: number; net: number }> = {};
 const add = (k: string, net: number) => { const c = (cnt[k] ??= { n: 0, net: 0 }); c.n++; c.net += net; };
@@ -24,7 +24,7 @@ for (let i = 0; i < pairs; i++) {
       ? (() => { const id: V2.PersonaId = level >= 10 ? 'solver' : 'reg'; const pr = V2.makeProfile(id, level, R.rand), m = V2.newMemory(); return (v: any) => V2.decide(v, pr, m, { rand: R.rand, quick: true, recallEnabled: false }); })()
       : (() => { const pr = V3.makeProfileV3(+opp.split(':')[1]), m = V3.newMemoryV3(); return (v: any) => V3.decide(v, pr, m, { rand: R.rand, quick: true }); })();
     const me = swap ? 1 : 0;
-    const h = startHand({ handNo: i * 2 + (swap ? 1 : 0) + 1, seed, level: { level: 1, sb: BB / 2, bb: BB, ante: 0 }, numSeats: 2, buttonSeat: 0, sbSeat: 0, bbSeat: 1, players: [0, 1].map((s) => ({ seat: s, name: 'P' + s, stack: stack * BB })) });
+    const h = startHand({ handNo: i * 2 + (swap ? 1 : 0) + 1, seed, level: { level: 1, sb: BB / 2, bb: BB, ante: anteBB * BB }, numSeats: 2, buttonSeat: 0, sbSeat: 0, bbSeat: 1, players: [0, 1].map((s) => ({ seat: s, name: 'P' + s, stack: stack * BB })) });
     let last = ''; let lastMemo: any = null; const trail: string[] = [];
     runHand(h, (hs, seat) => {
       const v = makePlayerView(hs, seat, 2);

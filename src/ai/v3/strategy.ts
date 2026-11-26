@@ -27,7 +27,17 @@ export function legalTo(ctx: Ctx, to: number): number {
   if (t < L.minRaiseTo) t = L.minRaiseTo;
   if (t > L.maxRaiseTo) t = L.maxRaiseTo;
   if (L.maxRaiseTo - t < Math.max(ctx.bb, 0.15 * L.maxRaiseTo)) t = L.maxRaiseTo;
+  // 유효 스택 넘게 걸 필요 없음: 가장 큰 상대가 맞출 수 있는 만큼까지만 (7BB 상대에게 55BB 올인 표시 방지)
+  const cap = usefulMax(ctx);
+  if (t > cap) t = Math.max(L.minRaiseTo, cap);
   return t;
+}
+
+/** 살아 있는 상대 중 가장 큰 스택이 맞출 수 있는 최대 금액(이번 스트리트 총액 기준) */
+export function usefulMax(ctx: Ctx): number {
+  const v = ctx.view, L = v.legal;
+  const mx = Math.max(0, ...v.seats.filter((s) => s.seat !== v.mySeat && s.status !== 'folded').map((s) => s.stack + s.committed));
+  return Math.min(L.maxRaiseTo, Math.max(mx, L.minRaiseTo));
 }
 
 const betTo = (ctx: Ctx, frac: number) => legalTo(ctx, ctx.view.legal.committed + Math.max(ctx.bb, ctx.pot * frac));
@@ -167,10 +177,18 @@ export function gutBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
   // 사람 하수는 블러프 레이즈를 거의 안 함 (실수는 과다 콜·수동 쪽): 에어·약한 패 레이즈는 없앰
   if (c === 'air' || c === 'weak' || (c === 'medium' && skill.level <= 3)) raise = 0;
   if (skill.potOdds) {
-    if (c !== 'monster' && ctx.toCall >= 0.6 * L.stack && p.eq < ctx.potOdds + 0.1) { cont *= 0.5; why = '올인급 콜이라 확실할 때만'; }
-    if (ctx.potOdds < 0.2 && c !== 'air') cont = Math.max(cont, 0.8);
+    if (c !== 'monster' && ctx.toCall >= 0.6 * L.stack && p.eq < ctx.potOdds + 0.05) { cont *= 0.5; why = '올인급 콜이라 확실할 때만'; }
+    // 가격이 아주 좋으면 콜 — 단 승률이 가격 근처는 돼야
+    if (ctx.potOdds < 0.2 && c !== 'air' && p.eq >= ctx.potOdds - 0.05) cont = Math.max(cont, 0.8);
+    // 승률이 가격보다 확실히 높으면(오버카드+거트샷 등) 에어라도 따라감
+    if (p.eq >= ctx.potOdds + 0.08 && aggrCount < 2) { cont = Math.max(cont, 0.75); if (c === 'air') why = '패는 없지만 승률이 가격보다 높음'; }
   }
   if (p.eq < 0.08 && c !== 'monster') cont *= 0.4;
+  // 초급의 '이미 많이 넣었으니' 심리 (매몰 비용): 스택의 40% 이상 들어갔으면 더 따라감
+  if (skill.level <= 3) {
+    const me = ctx.view.seats.find((s) => s.seat === ctx.view.mySeat)!;
+    if (me.startStack > 0 && (me.startStack - me.stack) / me.startStack >= 0.4) { cont = Math.min(1, cont + 0.15); why += ' · 이미 많이 넣어서 따라감'; }
+  }
   raise = Math.min(raise, cont);
   const opts: Option[] = [{ key: 'fold', act: 'fold' }, { key: 'call', act: 'call' }];
   const probs = [1 - cont, cont - raise];
@@ -276,6 +294,10 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     if (skill.solver && myStr >= 0.97 && S === 'flop' && p.dryBoard && HU && ctx.spr > 4) pValue *= 0.7;
     // 강한 패(레인지 상위권 + 실제 강함)는 웻 보드·낮은 SPR에서 보호·밸류 벳 (레이저 앞이 아니면)
     if (myStr >= 0.9 && (p.wetBoard || ctx.spr < 4) && !p.facingAggressorFirst) pValue = Math.max(pValue, 0.85);
+    // 리버의 넛급(레인지 상위 7% 이내 + 실제 승률 90%+): 다음 스트리트가 없으니 함정은 의미 없음 → 벳
+    if (S === 'river' && p.eqRaw >= 0.9 && myStr >= 0.93) pValue = Math.max(pValue, 0.95);
+    // 3명 이상 팟의 블러프는 크게 줄이고, 리버엔 블로커 없으면 안 함
+    if (ctx.numOpp >= 2) pBluff *= S === 'river' && !p.hand.blocker ? 0 : 0.3;
     // 3명 이상 팟: 얇은 밸류(밸류 영역 아래쪽)는 체크 쪽으로 — 여러 명이 콜하면 더 좋은 패가 있기 쉬움
     if (ctx.numOpp >= 2 && (rv > Math.max(0.1, V * 0.5) || myStr < 0.85)) pValue *= 0.5;
     const pBet = clamp(Math.max(pValue, pBluff), 0, 0.97);
@@ -333,6 +355,8 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
   // 이번 스트리트에 이미 레이즈가 두 번 이상 → 넛급만
   const raises = v.actionLog.filter((a) => a.street === ctx.street && (a.type === 'raise' || a.type === 'bet')).length;
   if (raises >= 2 && myStr < 0.95) pRaise = 0;
+  // 스택이 아직 깊은데(SPR 1.5+) 올인 레이즈가 되는 경우: 넛급이나 강한 드로우가 아니면 거의 안 함
+  if (raiseTo(ctx) >= v.legal.maxRaiseTo && ctx.spr > 1.5 && myStr < 0.9 && !p.hand.comboDraw) pRaise *= 0.3;
   pRaise = Math.min(pRaise, pCont);
   const opts: Option[] = [{ key: 'fold', act: 'fold' }, { key: 'call', act: 'call' }];
   const probs = [1 - pCont, pCont - pRaise];

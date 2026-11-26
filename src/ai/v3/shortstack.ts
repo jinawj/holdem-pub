@@ -8,7 +8,8 @@ import { COMBO_KEYS } from '../../engine/cards';
 import { equityVsRanges } from '../core/equity';
 import { keyPct } from '../core/handrank';
 import type { Ctx } from './context';
-import { buildRange } from './range';
+import { buildRange, openPctFor, pushPctFor } from './range';
+import { behindPreflop } from './context';
 import type { Skill } from './skill';
 import { riskPremium } from './stacks';
 
@@ -42,12 +43,16 @@ export function jamEV(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean
   let eqCalled = 0.5;
   let callers: Float64Array | null = null;
   const notes: string[] = [];
+  // 상대 콜 범위는 "내 올인 범위가 얼마나 넓어 보이나"에 따라 넓어짐 (표는 약 15% 올인 범위 기준).
+  //  헤즈업·블라인드 싸움은 올인 범위가 넓어서 상대도 넓게 콜함 → 폴드 에퀴티를 과대평가하던 문제
+  const J = v.seats.length === 2 ? 35 : villain === null ? pushPctFor(ctx.effBB, Math.max(1, ctx.behind)) : Math.max(8, Math.min(30, 0.45 * openPctFor(behindPreflop(v, villain), false) + 4));
+  const widen = Math.pow(J / 15, 0.9);
   // 주 상대
   if (villain !== null) {
     const vs = v.seats.find((s) => s.seat === villain)!;
     const vAdd = Math.min(vs.stack + vs.committed, jamTo) - vs.committed;
     const need = vAdd / Math.max(1, pot + risk + vAdd);
-    const cp = callPctForNeed(need);
+    const cp = Math.min(95, callPctForNeed(need) * widen);
     const R = buildRange(v, villain, { read: Math.max(0.6, skill.rangeRead) });
     let tot = 0, call = 0;
     callers = new Float64Array(1326);
@@ -64,7 +69,7 @@ export function jamEV(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean
     const add = Math.min(o.stack + o.committed, jamTo) - o.committed;
     const need = add / Math.max(1, pot + risk + add);
     // 이미 콜(림프·콜드콜)한 사람은 레이즈를 안 한 만큼 강한 패가 덜 있음
-    const cp = callPctForNeed(need) * (acted.has(o.seat) ? 0.6 : 0.85);
+    const cp = Math.min(95, callPctForNeed(need) * widen * (acted.has(o.seat) ? 0.6 : 0.85));
     foldAll *= 1 - cp / 100;
     restCp = Math.max(restCp, cp);
   }

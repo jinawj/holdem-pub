@@ -84,7 +84,15 @@ export function buildContext(view: PlayerView): Ctx {
     const all = evaluate([h1, h2, ...view.board]);
     madeCat = categoryOf(all);
     const boardCat = categoryOf(evaluate(view.board));
-    if (madeCat === boardCat && boardCat <= 3) madeCat = 0;
+    // 보드 족보와 같은 등급이면 내 카드가 실제로 쓰였는지 확인: 보드 카드와 같은 랭크를 들었거나, 보드의 낮은 페어보다 높은 포켓 페어
+    //  (예: 보드 2-2-4-4-T에 88 = 투페어 88·44, 내 패가 쓰임 / 같은 보드에 33 = 보드가 플레이)
+    if (madeCat === boardCat && boardCat <= 3) {
+      const br = view.board.map(rankOf);
+      const paired = br.filter((r, i) => br.indexOf(r) !== i);
+      const hr = [rankOf(h1), rankOf(h2)];
+      const uses = hr.some((r) => br.includes(r)) || (hr[0] === hr[1] && boardCat === 2 && paired.length > 0 && hr[0] > Math.min(...paired));
+      if (!uses) madeCat = 0;
+    }
     if (view.board.length === 5 && all === evaluate(view.board)) madeCat = 0;
   }
   const dHero = drawInfo([h1, h2], view.board);

@@ -232,7 +232,9 @@ export function riverSolve(ctx: Ctx, skill: Skill, bluffMult: number): BrainOut 
   // 읽기 보정: 벳을 받은 블러프 캐처는 라인·기억이 말하는 블러프 가능성만큼 콜을 늘리거나 줄인다
   //  (기본은 사람들이 리버 큰 벳에 블러프를 덜 섞는 것 반영: 0.85배)
   const fi = nd.acts.indexOf('f'), ci = nd.acts.indexOf('c');
-  if (fi >= 0 && ci >= 0 && (myB + 0.5) / B[pm].n < 0.8) {
+  const lastBet = riverActs.length ? riverActs[riverActs.length - 1].amount : 0;
+  // 작은 벳(팟 60% 미만)엔 읽기 보정을 하지 않음: 작은 벳에 블러프 캐처를 접으면 MDF보다 한참 덜 수비하게 됨
+  if (fi >= 0 && ci >= 0 && (myB + 0.5) / B[pm].n < 0.8 && lastBet >= 0.6 * (v.potTotal - lastBet)) {
     const k = Math.max(0.5, Math.min(1.3, AI_V3.solverCallScale * (bluffMult)));
     if (k < 1) { const m = probs[ci] * (1 - k); probs[ci] -= m; probs[fi] += m; }
     else { const m = Math.min(probs[fi], probs[ci] * (k - 1)); probs[fi] -= m; probs[ci] += m; }

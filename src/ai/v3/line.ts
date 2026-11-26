@@ -119,7 +119,8 @@ export function bluffyWithMemory(L: SeatLine, rec: OppRecord | undefined): { blu
   const n = rec.bigBluff + rec.bigValue;
   if (n === 0) return { bluffy: L.bluffy };
   const shown = rec.bigBluff / n; // 보여 준 블러프 비율
-  const w = Math.min(0.6, n / 6); // 볼수록 믿음
+  if (n < 3) return { bluffy: L.bluffy }; // 한두 번 본 걸로 판단하지 않음
+  const w = Math.min(0.6, (n - 2) / 6); // 볼수록 믿음
   const b = (1 - w) * L.bluffy + w * Math.max(0.05, Math.min(0.6, shown));
   return { bluffy: b, note: `예전에 큰 벳 ${n}번 중 블러프 ${rec.bigBluff}번 봄` };
 }

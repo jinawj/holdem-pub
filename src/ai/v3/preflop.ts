@@ -54,7 +54,8 @@ function basePolicy(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean, 
   const passive = L.canCheck ? check : fold;
   const callMult = lv(AI_V3.pre.callMult, lvl);
 
-  const facingAllInish = ctx.toCall > 0 && (ctx.toCall >= 0.35 * myTotal || ctx.raisesPre >= 3 || ctx.activeOpp.length === 0);
+  const lastRaiserAllIn = ctx.lastPreRaiser !== null && ctx.view.seats.find((s) => s.seat === ctx.lastPreRaiser)?.status === 'allin';
+  const facingAllInish = ctx.toCall > 0 && (ctx.toCall >= 0.35 * myTotal || ctx.raisesPre >= 3 || ctx.activeOpp.length === 0 || lastRaiserAllIn);
   if (facingAllInish) return evMode(ctx, skill, rand, quick);
 
   // 숏스택 푸시/폴드 (표)
@@ -62,7 +63,10 @@ function basePolicy(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean, 
     const anteBB = ctx.view.level.ante / bb;
     const m = L.canCheck ? null : pushMargin(ctx.key, Math.max(1, ctx.behind), ctx.effBB, anteBB);
     if (m !== null) {
-      const pr = sig(m / Math.max(0.02, lv(AI_V3.pre.pushWidth, lvl)));
+      let pr = sig(m / Math.max(0.02, lv(AI_V3.pre.pushWidth, lvl)));
+      // 상급+: 표가 손해(−0.1BB 이하)라고 하는 올인은 안 함 / 초급·중급 Lv3~4는 너무 늦게 올인하는 버릇(조금 더 기다림)
+      if (lvl >= 7 && m < -0.1) pr = 0;
+      if (lvl >= 3 && lvl <= 4) pr = sig((m - 0.3) / Math.max(0.02, lv(AI_V3.pre.pushWidth, lvl)));
       return { options: [raise(L.maxRaiseTo), passive], probs: [pr, 1 - pr], intents: ['value', 'fold'], why: `푸시/폴드 ${ctx.effBB.toFixed(1)}BB (뒤 ${ctx.behind}명): 표 기준 올인 이득 ${m >= 0 ? '+' : ''}${m.toFixed(2)}BB` };
     }
     let pp = pushPctFor(ctx.effBB, Math.max(1, ctx.behind));
@@ -118,13 +122,21 @@ function basePolicy(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean, 
     const isBB = ctx.view.mySeat === ctx.view.bbSeat, isSB = ctx.view.mySeat === ctx.view.sbSeat;
     const need = ctx.toCall / Math.max(1, ctx.pot + ctx.toCall);
     const deep = Math.max(0, Math.min(1, (ctx.effBB - 40) / 100));
-    const ipMult = isBB ? (skill.potOdds ? Math.max(1.35, Math.min(2.3, 0.33 / Math.max(0.05, need))) : 1.3) : isSB ? 0.7 : ctx.behind <= 2 && skill.position ? 1.1 + 0.3 * deep : 0.9 + 0.2 * deep;
+    // 콜(플랫) 범위: 인포지션일수록 넓게 (사람들은 3벳보다 콜을 훨씬 많이 함)
+    const ipMult = isBB ? 1.3 : isSB ? 0.7 : ctx.behind <= 2 && skill.position ? AI_V3.coldCall.late + 0.3 * deep : AI_V3.coldCall.mid + 0.2 * deep;
     let band = AI.callRatio * o * ipMult * callMult;
-    if (isBB && skill.potOdds) band = Math.max(band, o * (1.2 + (1.5 * Math.max(0, 0.33 - need)) / 0.33) - v);
+    // BB 수비: 이미 1BB를 냈고 마지막에 행동 → 가격과 오프너 범위로 전체 수비를 정함
+    //  (앞자리 오픈 약 35%, CO 약 50%, BTN·SB 60%+. 콜러가 있으면 가격이 좋아져 더 넓게)
+    if (isBB) {
+      const B = AI_V3.bbDefend;
+      const D = skill.potOdds ? Math.min(B.max, (B.base + o) * Math.sqrt(B.refNeed / Math.max(0.1, need))) : B.noOddsBase + 0.6 * o;
+      band = Math.max(band, D * Math.min(1.2, callMult) - v);
+    }
     // 헤즈업 BB: 넓은 SB 오픈에 3벳 약 16%, 전체 수비 약 70% (초급은 가격 감각이 없어 좁게)
     if (ctx.view.seats.length === 2) { v = Math.min(v, 16); band = Math.min(band, (skill.potOdds ? 70 : 55) - v); }
     let p3 = sig((v - pct) / w);
-    const b3 = lv(AI_V3.pre.bluff3bet, lvl);
+    // 블러프 3벳은 넓은 오픈(늦은 자리)을 상대로만. 앞자리 오픈(좁고 강함)엔 거의 안 함
+    const b3 = lv(AI_V3.pre.bluff3bet, lvl) * (o >= 18 ? 1 : 0.25);
     if (ctx.effBB > 40 && isBluffCandidate(ctx.key) && coldCallers === 0) p3 = p3 + (1 - p3) * b3;
     p3 = Math.min(1, p3);
     const cpct = skill.position ? playablePct(ctx.key, pct, ctx.effBB) : pct;
@@ -190,41 +202,60 @@ function evMode(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean): Pre
 function shortStackLayer(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean, base: PreOut): PreOut | null {
   const v = ctx.view, L = v.legal;
   const lvl = skill.level;
-  if (lvl < 4 || !L.canRaise) return null;
+  if (lvl < AI_V3.shortStackFrom || !L.canRaise) return null;
   const myOpened = v.actionLog.some((a) => a.street === 'preflop' && a.seat === v.mySeat && a.type === 'raise');
   const caseA = ctx.raisesPre === 1 && ctx.toCall > 0 && ctx.effBB <= AI_V3.jamBB;
   const caseB = ctx.raisesPre === 2 && myOpened && ctx.effBB <= 35;
   const caseC = ctx.raisesPre === 0 && !L.canCheck && ctx.effBB > AI.pushFoldBB && ctx.effBB <= 20 && lvl >= 6;
   if (caseC) {
+    // 오픈 올인은 '내가 짧은 쪽'일 때만 (모두를 커버하는 칩리더가 숏스택 여럿에게 올인하면 콜이 몰림 → 작게 레이즈해 셔브/폴드를 시킨다)
+    const st = readStacks(v);
+    if (st.myBB > ctx.effBB * 1.3 || ctx.effBB > 16) return null;
     const m = pushMargin(ctx.key, Math.max(1, ctx.behind), ctx.effBB, v.level.ante / ctx.bb);
     const ri = base.options.findIndex((o) => o.act === 'raise');
-    if (m === null || ri < 0 || ctx.pct <= 6) return null; // 프리미엄급은 작게 레이즈해 올인을 받는다
-    const jamP = sig(m / 0.3);
-    const pJam = Math.min(0.97, Math.max(base.probs[ri] * jamP, jamP * 0.85));
-    return {
-      options: [{ key: 'raise:' + L.maxRaiseTo, act: 'raise', to: L.maxRaiseTo }, { key: 'fold', act: 'fold' }], probs: [pJam, 1 - pJam], intents: ['value', 'fold'],
-      why: `${ctx.effBB.toFixed(0)}BB 오픈 자리: 레이즈-폴드 대신 올인/폴드 (표 기준 올인 이득 ${m >= 0 ? '+' : ''}${m.toFixed(2)}BB)`,
-    };
+    if (m === null || ri < 0 || ctx.pct <= 6 || m <= 0.05) return null; // 프리미엄은 작게 레이즈해 올인을 받고, 이득 없는 올인은 안 함
+    // 원래 레이즈하려던 몫 중 일부를 올인으로 (레이즈 자체는 남김: 레이즈-폴드보다 나은 패만 바꿈)
+    const jamP = sig((m - 0.15) / 0.2);
+    const opts = [...base.options], probs = [...base.probs], intents = [...base.intents];
+    const moved = probs[ri] * jamP;
+    probs[ri] -= moved;
+    opts.push({ key: 'raise:' + legalTo(ctx, L.maxRaiseTo), act: 'raise', to: legalTo(ctx, L.maxRaiseTo) });
+    probs.push(moved);
+    intents.push('value');
+    return { options: opts, probs, intents, why: `${ctx.effBB.toFixed(0)}BB 오픈 자리: 표 기준 올인 이득 +${m.toFixed(2)}BB → 레이즈-폴드 대신 올인 ${Math.round(jamP * 100)}%` };
   }
   if (!caseA && !caseB) return null;
   const villain = ctx.lastPreRaiser!;
+  // 이미 올인한 상대: 폴드 에퀴티가 없으니 단순 가격 계산(evMode)이 맞음
+  if (v.seats.find((s) => s.seat === villain)?.status === 'allin') return null;
   const j = jamEV(ctx, skill, rand, quick, villain);
   const vr = buildRange(v, villain, { read: Math.max(0.6, skill.rangeRead) });
   const eqAll = equityVsRanges(v.holeCards, [], [vr], quick ? 150 : 400, rand).eq;
   const isBB = v.mySeat === v.bbSeat;
   const realize = isBB ? 0.8 : !caseA ? 0.75 : 0.85;
   const evCall = eqAll * realize * (ctx.pot + ctx.toCall) - ctx.toCall;
-  const opts: Option[] = [{ key: 'fold', act: 'fold', ev: 0 }, { key: 'call', act: 'call', ev: evCall }, { key: 'raise:' + L.maxRaiseTo, act: 'raise', to: L.maxRaiseTo, ev: j.evJam }];
+  const jamTo = legalTo(ctx, L.maxRaiseTo);
+  const opts: Option[] = [{ key: 'fold', act: 'fold', ev: 0 }, { key: 'call', act: 'call', ev: evCall }, { key: 'raise:' + jamTo, act: 'raise', to: jamTo, ev: j.evJam }];
   const temp = lvl >= 7 ? 0.05 : 0.12;
   const vals = opts.map((o) => (o.ev ?? 0) / Math.max(1, ctx.pot));
   const mx = Math.max(...vals);
+  // 아주 짧으면(8BB 이하) 콜하고 플랍 보는 건 낭비: 올인 아니면 폴드
+  if (ctx.effBB <= 8) vals[1] = -Infinity;
   const ex = vals.map((x) => Math.exp((x - mx) / temp));
   const es = ex.reduce((a, b) => a + b, 0);
   // 기본 정책을 같은 세 행동으로 옮김 (레이즈 = 올인으로 봄)
   const bp = [0, 0, 0];
   base.options.forEach((o, i) => { bp[o.act === 'fold' || o.act === 'check' ? 0 : o.act === 'call' ? 1 : 2] += base.probs[i]; });
   const w = lvl >= 7 ? 0.85 : 0.5;
-  const probs = bp.map((b, i) => (1 - w) * b + w * (ex[i] / es));
+  if (ctx.effBB <= 8) { bp[2] += bp[1]; bp[1] = 0; }
+  let probs = bp.map((b, i) => (1 - w) * b + w * (ex[i] / es));
+  // 상급+: 최선보다 확실히 나쁜 선택(EV 손실이 Lv9+ 0.1BB, Lv7~8 0.25BB 넘음)은 고르지 않음 — 계산을 알면서 확률로 손해 보지 않게
+  if (lvl >= 7) {
+    const best = Math.max(...opts.map((o, i) => (i === 1 && ctx.effBB <= 8 ? -Infinity : o.ev ?? 0)));
+    const cut = (lvl >= 9 ? 0.1 : 0.25) * ctx.bb;
+    const kept = probs.map((x, i) => ((opts[i].ev ?? 0) < best - cut || (i === 1 && ctx.effBB <= 8) ? 0 : x));
+    if (kept.some((x) => x > 0)) { const s = kept.reduce((a, b) => a + b, 0); probs = kept.map((x) => x / s); }
+  }
   const why = `숏스택 대응(${caseA ? '오픈을 받음' : '3벳을 받음'}, 유효 ${ctx.effBB.toFixed(0)}BB): 콜 EV ${(evCall / ctx.bb).toFixed(1)}BB(승률 ${(eqAll * 100).toFixed(0)}%) · ${j.why}`;
   return { options: opts, probs, intents: ['fold', 'none', j.eqCalled >= 0.5 ? 'value' : 'semibluff'], why };
 }

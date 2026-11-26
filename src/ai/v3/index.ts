@@ -97,6 +97,12 @@ export function decide(view: PlayerView, prof: V3Profile, mem: V3Memory, opts: D
     const top = probs.indexOf(Math.max(...probs));
     if (top !== brainTop) thoughts.push(`계산(EV)이 판단을 바꿈: ${actName(options[brainTop].act)} → ${actName(options[top].act)} 위주`);
   }
+  // 상급+: 승률이 가격보다 확실히 높으면(+10%p) 폴드는 거의 안 함 (레이즈를 받은 경우는 제외)
+  if (skill.rangeStrategy && ctx.facingBet && eqRaw !== undefined && view.street !== 'preflop' && eqRaw >= ctx.potOdds + 0.1) {
+    const iAggr = view.actionLog.some((a) => a.street === view.street && a.seat === view.mySeat && (a.type === 'bet' || a.type === 'raise'));
+    const fi = options.findIndex((o) => o.act === 'fold'), ci = options.findIndex((o) => o.act === 'call');
+    if (!iAggr && fi >= 0 && ci >= 0 && probs[fi] > 0.05) { probs[ci] += probs[fi] - 0.05; probs[fi] = 0.05; }
+  }
   // 고수의 큰 결정: 스택이 크게 걸린 콜·폴드는 혼합을 날카롭게 (드문 쪽을 굴려 큰 팟을 잃지 않게)
   if (skill.solver && ctx.toCall > 0 && ctx.toCall >= 0.2 * view.legal.stack) probs = norm(probs.map((x) => x * x));
   // 안전장치
