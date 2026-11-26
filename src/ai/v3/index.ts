@@ -97,6 +97,11 @@ export function decide(view: PlayerView, prof: V3Profile, mem: V3Memory, opts: D
     const top = probs.indexOf(Math.max(...probs));
     if (top !== brainTop) thoughts.push(`계산(EV)이 판단을 바꿈: ${actName(options[brainTop].act)} → ${actName(options[top].act)} 위주`);
   }
+  // 기계적 꼬리 제거: 승률이 필요 승률의 절반도 안 되는 콜은 Lv3+는 안 함 (Lv1~2 하수는 가끔 남김)
+  if (ctx.facingBet && eqRaw !== undefined && view.street !== 'preflop' && skill.level >= 3 && eqRaw < ctx.potOdds * 0.5) {
+    const ci = options.findIndex((o) => o.act === 'call'), fi = options.findIndex((o) => o.act === 'fold');
+    if (ci >= 0 && fi >= 0 && probs[ci] > 0) { probs[fi] += probs[ci]; probs[ci] = 0; }
+  }
   // 상급+: 승률이 가격보다 확실히 높으면(+10%p) 폴드는 거의 안 함 (레이즈를 받은 경우는 제외)
   if (skill.rangeStrategy && ctx.facingBet && eqRaw !== undefined && view.street !== 'preflop' && eqRaw >= ctx.potOdds + 0.1) {
     const iAggr = view.actionLog.some((a) => a.street === view.street && a.seat === view.mySeat && (a.type === 'bet' || a.type === 'raise'));
@@ -128,7 +133,13 @@ export function decide(view: PlayerView, prof: V3Profile, mem: V3Memory, opts: D
   if (!probs.some((x) => x > 0)) probs = options.map((o) => (o.act === (L.canCheck ? 'check' : 'call') ? 1 : 0));
   probs = norm(probs);
   // 감 브레인(하수~중수)은 드문 행동을 더 넓게 자름: 판단과 반대인 6~10%짜리 블러프·플로트가 기계적으로 보임
-  const tail = brain === 'gut' || (brain === 'pre' && skill.level <= 6) ? AI_V3.tailCutGut : AI_V3.tailCut;
+  // 솔버: 거의 넛(승률 90%+)이면 체크는 10% 이하로 (리버엔 다음이 없음)
+  if (brain === 'solver' && !ctx.facingBet && eqRaw !== undefined && eqRaw >= 0.9) {
+    const ci = options.findIndex((o) => o.act === 'check');
+    const bets = options.map((o, i) => (o.act === 'raise' ? i : -1)).filter((i) => i >= 0);
+    if (ci >= 0 && bets.length && probs[ci] > 0.1) { const m = probs[ci] - 0.1; probs[ci] = 0.1; const bs = bets.reduce((a, i) => a + probs[i], 0); bets.forEach((i) => (probs[i] += bs > 0 ? (m * probs[i]) / bs : m / bets.length)); }
+  }
+  const tail = brain === 'gut' || brain === 'solver' || (brain === 'pre' && skill.level <= 6) ? AI_V3.tailCutGut : AI_V3.tailCut;
   const t = probs.map((x) => (x < tail ? 0 : x));
   if (t.some((x) => x > 0)) probs = norm(t);
   // 고르기
@@ -199,7 +210,27 @@ function sanitizeIntent(i: Intent, act: string, eq: number | undefined): Intent 
   if (eq === undefined) return i;
   if ((i === 'bluff' || i === 'semibluff') && eq >= 0.55) return eq >= 0.7 ? 'value' : 'thin';
   if ((i === 'value' || i === 'thin') && act === 'raise' && eq < 0.3) return 'bluff';
+  if (i === 'thin' && eq < 0.4) return act === 'raise' ? 'bluff' : 'potControl';
   if (i === 'trap' && eq < 0.8) return act === 'call' ? 'bluffCatch' : 'potControl';
   if (i === 'giveUp' && eq >= 0.5) return 'potControl';
   return i;
+}
+
+// ---------- 테이블 배정·표시 (앱용) ----------
+/** 난이도 범위 안에서 레벨을 고르게 배정 (v3는 성향이 아직 없어 레벨만). 좌석 순서는 섞음 */
+export function createProfilesV3(minLv: number, maxLv: number, n: number, rand: () => number): V3Profile[] {
+  const out: V3Profile[] = [];
+  for (let i = 0; i < n; i++) out.push(makeProfileV3(n === 1 ? Math.round((minLv + maxLv) / 2) : Math.round(minLv + ((maxLv - minLv) * i) / (n - 1))));
+  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  return out;
+}
+
+export function profileLabelV3(p: V3Profile): string {
+  return `v3 ${tierName(p.level)} Lv${p.level}`;
+}
+
+/** 이긴 뒤 패를 자진해서 보여 줄지: 하수는 자랑하듯 자주, 고수는 거의 안 보여 줌 */
+export function wantsToShowV3(p: V3Profile, won: boolean, rand: () => number): boolean {
+  if (!won) return false;
+  return rand() < (p.level <= 3 ? 0.3 : p.level <= 6 ? 0.12 : 0.04);
 }

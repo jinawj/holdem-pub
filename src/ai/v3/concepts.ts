@@ -65,7 +65,10 @@ export function readHand(ctx: Ctx, eq: number, noticeDanger: boolean): HandRead 
     const both = br.includes(hr[0]) && br.includes(hr[1]) && !pp;
     if (both) { cls = ctx.wet > 0.55 ? 'strong' : 'monster'; desc = '투페어'; }
     else if (pp && hr[0] > top) { cls = 'strong'; desc = '오버페어(보드 페어)'; }
-    else { cls = hr.includes(top) ? 'strong' : 'medium'; desc = '투페어(보드 페어 포함)'; }
+    // 보드 페어 + 내 페어: 내 페어가 몇 번째인지로 (예: T-4-4 보드에 33은 사실상 언더페어 → 약함)
+    else if (pp) { cls = hr[0] > second ? 'medium' : 'weak'; desc = hr[0] > second ? '포켓 페어(보드 페어, 중간)' : '낮은 포켓 페어(보드 페어)'; }
+    else if (hr.includes(top)) { cls = 'strong'; desc = '탑페어 + 보드 페어'; }
+    else { cls = hr.includes(second) ? 'medium' : 'weak'; desc = hr.includes(second) ? '세컨드 페어 + 보드 페어' : '낮은 페어 + 보드 페어'; }
   } else if (ctx.madeCat === 1) {
     if (pp && hr[0] > top) { cls = 'strong'; desc = '오버페어'; }
     else if (hr.includes(top)) {

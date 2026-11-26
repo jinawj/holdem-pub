@@ -1,4 +1,4 @@
-import { profileLabel } from '../ai/v2';
+import { profileLabel } from '../ai/adapter';
 import { exportJson } from '../persist/file';
 import { Toast } from './Game';
 import { useStore } from './store';

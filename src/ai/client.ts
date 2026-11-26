@@ -1,5 +1,5 @@
 // 메인 스레드 → AI Web Worker 호출
-import type { AiDecision, AiMemory, AiProfile } from './v2';
+import type { AiDecision, AnyMemory as AiMemory, AnyProfile as AiProfile } from './adapter';
 import type { PlayerView } from '../engine/view';
 
 let worker: Worker | null = null;

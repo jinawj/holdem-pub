@@ -4,6 +4,7 @@ import { pickJsonFile } from '../persist/file';
 import { fmt } from './Chips';
 import { Toast } from './Game';
 import { defaultSettings, Settings as S, useStore } from './store';
+import { AI_VERSION_LABEL, AI_VERSIONS, AiVersion } from '../ai/adapter';
 
 function Seg<T extends string | number>({ label, opts, value, onChange, fmtOpt }: { label: string; opts: T[]; value: T; onChange: (v: T) => void; fmtOpt?: (v: T) => string }) {
   return (
@@ -38,6 +39,7 @@ export function SettingsScreen() {
       <Seg label="시작 스택" opts={START_STACK_BB_OPTIONS} value={s.stackBB} onChange={(v) => up({ stackBB: v })} fmtOpt={(v) => `${fmt(v * START_STACK_MULT)} (${v}BB)`} />
       <Seg label="블라인드 레벨 시간" opts={LEVEL_MINUTES_OPTIONS} value={s.levelMinutes} onChange={(v) => up({ levelMinutes: v })} fmtOpt={(v) => `${v}분`} />
       <Seg label="난이도" opts={['normal', 'hard', 'veryhard'] as Difficulty[]} value={s.difficulty} onChange={(v) => up({ difficulty: v })} fmtOpt={(v) => DIFFICULTY[v].name} />
+      <Seg label="AI 버전 (V3는 새 AI 시험판)" opts={AI_VERSIONS} value={(s.aiVersion ?? 'v2') as AiVersion} onChange={(v) => up({ aiVersion: v })} fmtOpt={(v) => AI_VERSION_LABEL[v]} />
       <Seg label="AI 속도" opts={['fast', 'normal', 'real'] as AiSpeed[]} value={s.aiSpeed} onChange={(v) => up({ aiSpeed: v })} fmtOpt={(v) => ({ fast: '빠름', normal: '보통', real: '리얼' })[v]} />
       <Seg label="AI 기억 반응 (쇼다운에서 본 장면에 흔들림)" opts={['on', 'off']} value={s.recall ? 'on' : 'off'} onChange={(v) => up({ recall: v === 'on' })} fmtOpt={(v) => (v === 'on' ? '켜기' : '끄기')} />
       <button className="big primary" onClick={() => st.newGame(s)}>{st.hasAutosave ? '새 토너먼트 시작' : '토너먼트 시작'}</button>

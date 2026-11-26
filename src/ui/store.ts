@@ -1,18 +1,22 @@
 import { create } from 'zustand';
 import { AiSpeed, AI_SPEED_MULT, Difficulty, DEFAULT_LEVEL_MINUTES, SAVE_VERSION, START_STACK_MULT } from '../config';
-import { createAiProfiles, newMemory, updateMemory, wantsToShow, makeProfile } from '../ai/v2';
-import type { AiMemory, AiProfile, AiDecision } from '../ai/v2';
+import { afterHand, AiVersion, createProfiles, newMemoryFor, wantsToShow } from '../ai/adapter';
+import type { AiDecision, AnyMemory as AiMemory, AnyProfile as AiProfile } from '../ai/adapter';
 import { applyMove, IllegalActionError } from '../engine/hand';
 import { aliveSeats, createTournament, finishHand, forfeit, startNextHand, TournamentState, LEVELS } from '../engine/tournament';
 import type { Move } from '../engine/types';
 import { cryptoInt, cryptoSeed, seedToString } from '../engine/rng';
 import { makePlayerView } from '../engine/view';
-import { ActionMemo, HandRecord, makeHandRecord, summaryFor } from '../game/summary';
+import { ActionMemo, HandRecord, makeHandRecord } from '../game/summary';
 import nicknames from '../data/nicknames.json';
 import { kvDel, kvGet, kvSet } from '../persist/db';
 import { exportJson, migrateSave } from '../persist/file';
 
-export interface Settings { seats: number; stackBB: number; levelMinutes: number; aiSpeed: AiSpeed; difficulty: Difficulty; recall: boolean; /** 내 닉네임 (브라우저에 기억) */ myName?: string }
+export interface Settings {
+  seats: number; stackBB: number; levelMinutes: number; aiSpeed: AiSpeed; difficulty: Difficulty; recall: boolean;
+  /** 내 닉네임 (브라우저에 기억) */ myName?: string;
+  /** AI 버전 (없으면 v2 — 예전 저장·설정 호환). v3는 베타 */ aiVersion?: AiVersion;
+}
 export const defaultSettings: Settings = { seats: 8, stackBB: 200, levelMinutes: DEFAULT_LEVEL_MINUTES, aiSpeed: 'normal', difficulty: 'normal', recall: true };
 
 export interface Highlight { handNo: number; actionIndex: number; street: string }
@@ -133,9 +137,9 @@ export const useStore = create<Store>((set, get) => ({
     const me = (s.myName ?? '').trim().slice(0, 5) || '나';
     const names = [me, ...shuffle((nicknames as string[]).filter((x) => x !== me)).slice(0, n - 1)];
     const t = createTournament(names, HUMAN, s.stackBB * START_STACK_MULT);
-    const profiles = createAiProfiles(s.difficulty, n - 1, cryptoRand);
+    const profiles = createProfiles(s.aiVersion ?? 'v2', s.difficulty, n - 1, cryptoRand);
     const ai: GameSave['ai'] = {};
-    for (let i = 1; i < n; i++) ai[i] = { profile: profiles[i - 1], memory: newMemory() };
+    for (let i = 1; i < n; i++) ai[i] = { profile: profiles[i - 1], memory: newMemoryFor(profiles[i - 1]) };
     const g: GameSave = {
       kind: 'holdem-pub-save', version: SAVE_VERSION, id: seedToString(cryptoSeed()).slice(0, 12), createdAt: Date.now(),
       settings: s, t, ai, colors: shuffle(COLORS).slice(0, n), levelRemainingMs: s.levelMinutes * 60000, elapsedMs: 0,
@@ -211,12 +215,12 @@ export const useStore = create<Store>((set, get) => ({
     for (const p of h.players) {
       if (p.seat === HUMAN || r.shown.includes(p.seat) || p.folded && !(r.won[p.seat] > 0)) continue;
       const won = (r.won[p.seat] ?? 0) > 0;
-      if (won && wantsToShow(g.ai[p.seat].profile, won, false, cryptoRand)) g.voluntaryShown.push(p.seat);
+      if (won && wantsToShow(g.ai[p.seat].profile, won, cryptoRand)) g.voluntaryShown.push(p.seat);
     }
     g.history.push(makeHandRecord(h, g.curMemos, g.curBaseline, g.voluntaryShown, HUMAN));
     for (const p of h.players) {
       if (p.seat === HUMAN) continue;
-      g.ai[p.seat].memory = updateMemory(g.ai[p.seat].memory, g.ai[p.seat].profile, summaryFor(h, p.seat), g.settings.recall);
+      g.ai[p.seat].memory = afterHand(g.ai[p.seat].profile, g.ai[p.seat].memory, h, p.seat, g.settings.recall);
     }
     finishHand(g.t);
     g.t.hand = null;
@@ -328,8 +332,7 @@ export const useStore = create<Store>((set, get) => ({
 export function aiSpeedMult(g: GameSave) { return AI_SPEED_MULT[g.settings.aiSpeed]; }
 export const HUMAN_SEAT = HUMAN;
 
-/** 사람 결정 시점 "AI 기준" 계산용 프로필 (기록만) */
-export const baselineProfile = makeProfile('solver', 10, () => 0.5);
+
 
 export function viewFor(g: GameSave, seat: number) {
   return makePlayerView(g.t.hand!, seat, aliveSeats(g.t).length);

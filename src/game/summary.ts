@@ -2,7 +2,7 @@
 import type { HandState } from '../engine/types';
 import type { HandSummaryForAi } from '../ai/v2';
 import { categoryOf, evaluate } from '../engine/evaluator';
-import type { DecisionMemo } from '../ai/v2';
+import type { DecisionMemo } from '../ai/adapter';
 import type { PlayerView } from '../engine/view';
 
 export function summaryFor(h: HandState, seat: number): HandSummaryForAi {

@@ -92,7 +92,9 @@ export function gutBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
   if (!ctx.facingBet) {
     let pb: number, why: string;
     if (p.facingAggressorFirst && skill.lineBasic) {
-      pb = c === 'monster' ? (river ? 0.6 : 0.15) : c === 'strong' && p.wetBoard ? 0.1 : 0.03;
+      // 프리플랍 레이저가 뒤에 있음 → 체크가 기본. 그래도 강한 패는 가끔 먼저 벳(리드), 상대가 지난 스트리트를 체크로 넘겼으면 리버 얇은 밸류
+      const vChecked = river && p.vLine.capped >= 0.5;
+      pb = c === 'monster' ? (river ? 0.75 : 0.3) : c === 'strong' ? (river && vChecked ? 0.45 : p.wetBoard ? 0.25 : 0.12) : c === 'medium' && vChecked ? 0.2 : 0.03;
       why = '레이저 앞이라 체크 위주';
     } else if (p.initiative) {
       if (S === 'flop') {
@@ -121,6 +123,8 @@ export function gutBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     }
     // 초급: "맞으면 벳" — 페어 이상이면 먼저 벳하는 일이 잦음
     if (lvl <= 3 && classRank(c) >= 3) pb = Math.max(pb, 0.4);
+    // 웻 보드·3명 이상 팟의 몬스터는 슬로플레이하지 않음 (보호 + 밸류)
+    if (c === 'monster' && (p.wetBoard || !HU) && !(p.facingAggressorFirst && skill.lineBasic && !river)) pb = Math.max(pb, 0.88);
     if (!HU && (c === 'air' || c === 'weak' || c === 'draw')) pb *= 0.5;
     pb = clamp(pb, 0, 0.97);
     const opts: Option[] = [{ key: 'check', act: 'check' }];
@@ -151,7 +155,12 @@ export function gutBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     default: cont = small && !river ? (h.backdoor ? 0.35 : 0.12) : 0.03; raise = 0.03; why = '에어: 대부분 폴드';
   }
   // 초급의 '페어면 좋은 패' 과신
-  if ((c === 'medium' || (c === 'weak' && ctx.madeCat >= 1)) && skill.pairPride > cont) { cont = skill.pairPride; why = '페어니까 따라감'; }
+  // '페어니까 따라감'(하수의 과신): 중급(Lv4+)은 가격이 대략 맞을 때만, 3배럴 앞에선 안 함
+  const barrels3 = p.vLine.tags.some((t) => t.includes('3배럴'));
+  const prideOk = skill.level <= 3 || (p.eq >= ctx.potOdds - 0.03 && !barrels3);
+  if ((c === 'medium' || (c === 'weak' && ctx.madeCat >= 1)) && skill.pairPride > cont && prideOk) { cont = skill.pairPride; why = '페어니까 따라감'; }
+  let warCap: number | undefined;
+  let warCapPending = false;
   // 레이즈를 받음(내가 이번 스트리트에 벳·레이즈함) → 상대가 강해 보임 (라인 읽기 기본)
   const iBet = ctx.view.actionLog.some((a) => a.street === S && a.seat === ctx.view.mySeat && (a.type === 'bet' || a.type === 'raise'));
   if (iBet && c !== 'monster' && skill.lineBasic) {
@@ -160,16 +169,19 @@ export function gutBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     if (c === 'medium') cont = Math.min(cont, 0.3);
     if (c === 'weak' || c === 'air') cont = Math.min(cont, 0.08);
     why = '레이즈를 받음: 강해 보여 신중하게';
+    warCapPending = true;
   }
   // 레이즈 전쟁(이번 스트리트 벳·레이즈 2번 이상): 중급부터는 원페어로 버티지 않음
-  let warCap: number | undefined;
   const aggrCount = ctx.view.actionLog.filter((a) => a.street === S && (a.type === 'bet' || a.type === 'raise')).length;
   if (aggrCount >= 2 && c !== 'monster' && skill.lineBasic) {
     raise = 0;
     cont = Math.min(cont, c === 'strong' ? (skill.level >= 5 ? 0.35 : 0.55) : c === 'draw' ? 0.35 : 0.08);
+    // 그래도 계산상 크게 앞서면(승률이 가격보다 20%p+) 다 접지는 않음
+    if (p.eq >= ctx.potOdds + 0.2 && c === 'strong') cont = Math.max(cont, 0.7);
     warCap = cont;
     why = '레이즈가 오가는 팟: 원페어로는 버티지 않음';
   }
+  if (warCapPending && warCap === undefined) warCap = cont; // 레이즈를 받은 판단도 계산이 되살리지 못하게
   if (!HU && c === 'air') { cont = Math.min(cont, 0.03); raise = 0.01; }
   if (c === 'monster' && p.eqRaw < 0.5 && skill.level >= 4) { raise = 0; why = '강하지만 보드가 위험해 콜'; }
   // 보드가 페어·같은 무늬 3장인데 스트레이트·플러시(풀하우스 미만): 큰 레이즈 대신 콜 위주 (보드를 보는 중급부터)
@@ -264,6 +276,11 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     B += clamp(ra * 0.8 + na * 0.8, -0.2, 0.15);
     if (!ctx.ip) B *= 0.85;
     B *= Math.pow(0.6, Math.max(0, ctx.numOpp - 1));
+    // 멀티웨이에서 지난 스트리트까지 모두 체크로 넘어오고 내가 마지막(IP): 아무도 강하지 않음 → 찔러보기(스탭)
+    const prevSt = S === 'turn' ? 'flop' : S === 'river' ? 'turn' : null;
+    const allCheckedPrev = prevSt !== null && !v.actionLog.some((a) => a.street === prevSt && (a.type === 'bet' || a.type === 'raise'));
+    const stab = ctx.ip && !p.initiative && allCheckedPrev && ctx.numOpp >= 2 && v.actionLog.some((a) => a.street === S && a.type === 'check');
+    if (stab) B = Math.max(B, 0.25);
     B = clamp(B, 0.03, S === 'flop' ? 0.72 : S === 'turn' ? 0.6 : 0.55);
     const sz = chooseSize(ctx, p, skill);
     const frac0 = sz.frac;
@@ -273,7 +290,7 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     const V = B * (1 - bf), Bb = B * bf;
     // 밸류: 만들어진 패 강도로 상위 V
     const rv = massAbove(R, str, myStr);
-    let pValue = sig((V - rv) / 0.025);
+    let pValue = sig((V - rv) / 0.04);
     // 블러프: 밸류 아닌 패 중 블러프 점수 상위 Bb (드로우·블로커·쇼다운 가치 없음)
     const bs = bluffScores(board, str, nutSuit);
     const valueCut = valueThreshold(R, str, V);
@@ -285,7 +302,8 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     }
     const bluffRank = w > 0 ? above / w : 1;
     // 블러프 몫이 아주 작으면 그만큼만 (경계 흐림 때문에 1% 몫이 60% 블러프가 되지 않게)
-    let pBluff = myStr < valueCut ? clamp((Bb + 0.01 - bluffRank) / 0.02, 0, 1) * Math.min(1, Bb / 0.03) : 0;
+    // 블러프는 후보 상위 2×Bb 구간에서 순위가 높을수록 자주 (평균하면 정확히 Bb만큼) — 순위로 딱 잘라 100%/0%가 되지 않게 섞는다
+    let pBluff = myStr < valueCut && Bb > 0 ? clamp(1 - bluffRank / (2 * Bb), 0, 1) : 0;
     // 쇼다운 가치가 충분한 중간 패는 블러프로 쓰지 않음
     if (p.hand.showdown && classRank(p.hand.cls) >= 3) pBluff *= 0.3;
     // 리버: 쇼다운 가치가 조금이라도 있는 패(A하이·약한 페어)는 블러프 대신 체크
@@ -297,9 +315,11 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     // 리버의 넛급(레인지 상위 7% 이내 + 실제 승률 90%+): 다음 스트리트가 없으니 함정은 의미 없음 → 벳
     if (S === 'river' && p.eqRaw >= 0.9 && myStr >= 0.93) pValue = Math.max(pValue, 0.95);
     // 3명 이상 팟의 블러프는 크게 줄이고, 리버엔 블로커 없으면 안 함
-    if (ctx.numOpp >= 2) pBluff *= S === 'river' && !p.hand.blocker ? 0 : 0.3;
+    if (ctx.numOpp >= 2 && !stab) pBluff *= S === 'river' && !p.hand.blocker ? 0 : 0.3;
     // 3명 이상 팟: 얇은 밸류(밸류 영역 아래쪽)는 체크 쪽으로 — 여러 명이 콜하면 더 좋은 패가 있기 쉬움
-    if (ctx.numOpp >= 2 && (rv > Math.max(0.1, V * 0.5) || myStr < 0.85)) pValue *= 0.5;
+    if (ctx.numOpp >= 2 && (rv > Math.max(0.1, V * 0.5) || myStr < 0.85) && p.eqRaw < 0.65) pValue *= 0.5;
+    // 실제로 강한 패(승률 70%+, 레인지 상위권)는 레인지 벳 비율과 상관없이 밸류를 친다 — 레이저 앞에서도 가끔 리드, 리버는 자주
+    if (p.eqRaw >= 0.7 && myStr >= 0.8) pValue = Math.max(pValue, p.facingAggressorFirst ? (S === 'river' ? 0.6 : 0.3) : 0.75);
     const pBet = clamp(Math.max(pValue, pBluff), 0, 0.97);
     const opts: Option[] = [{ key: 'check', act: 'check' }];
     const probs = [1 - pBet];
@@ -308,11 +328,19 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     // 사이즈는 '레인지 크기'를 기본으로, 밸류 영역 아래쪽(얇은 밸류)은 작게: 큰 벳·오버벳은 넛급과 블러프만
     let frac = sz.frac, sizeWhy = '';
     if (isValue && (rv > Math.max(0.1, V * 0.5) || myStr < 0.85) && frac > 0.5) { frac = S === 'flop' ? 0.33 : 0.5; sizeWhy = ' · 얇은 밸류라 작게'; }
+    // 세미블러프는 SPR이 낮으면 작게 (크게 걸었다가 올인 레이즈에 접는 손해 방지)
+    if (!isValue && draw && ctx.spr < 3.5 && frac > 0.5) { frac = 0.5; sizeWhy += ' · 낮은 SPR 세미블러프라 작게'; }
     if (L.canRaise) {
       const to = betTo(ctx, frac);
       opts.push({ key: 'raise:' + to, act: 'raise', to });
       probs.push(pBet);
       intents.push(isValue ? (myStr >= 0.8 ? 'value' : 'thin') : draw ? 'semibluff' : 'bluff');
+      // 고수(Lv9+)는 같은 패를 두 가지 크기로 섞어 사이즈로 패를 읽히지 않게 함 (상급 Lv7~8은 한 크기 — 예측 가능)
+      if (skill.solver && pBet > 0.15) {
+        const alt = frac >= 0.6 ? Math.max(0.33, frac * 0.5) : Math.min(1.0, frac * 2);
+        const to2 = betTo(ctx, alt);
+        if (to2 !== to) { const share = AI_V3.sizeMixTop; opts.push({ key: 'raise:' + to2, act: 'raise', to: to2 }); probs[probs.length - 1] = pBet * (1 - share); probs.push(pBet * share); intents.push(intents[intents.length - 1]); sizeWhy += ` · 크기 섞기(${Math.round(alt * 100)}% ${Math.round(share * 100)}%)`; }
+      }
     }
     const why = `${role} · 레인지 벳 ${(B * 100).toFixed(0)}% (밸류 ${(V * 100).toFixed(0)}% + 블러프 ${(Bb * 100).toFixed(0)}%) · ${sz.why}${sizeWhy} → 내 패 상위 ${(rv * 100).toFixed(0)}%${pBet < 0.3 ? ` → 벳 영역 밖(블러프 후보 순위 ${(bluffRank * 100).toFixed(0)}%)` : isValue ? ` → 밸류 영역` : ` → 블러프로 선택(후보 순위 ${(bluffRank * 100).toFixed(0)}%)`}`;
     return { options: opts, probs, intents, why, source: 'range' };
@@ -329,12 +357,16 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
   const pTheory = sig((defend - rr) / 0.03);
   const margin = p.eq - ctx.potOdds;
   const pRead = sig((margin - (draw ? -0.03 : 0.01)) / 0.035);
-  const bigDecision = vsRaise || p.commit >= 0.45;
+  // 샌드위치(앞에서 벳, 뒤에서 레이즈) 또는 이번 스트리트 레이즈 2번 이상: 레인지가 아주 강함
+  const aggrOthers = v.actionLog.filter((a) => a.street === ctx.street && a.seat !== v.mySeat && (a.type === 'bet' || a.type === 'raise')).length;
+  const sandwich = aggrOthers >= 2 && !vsRaise;
+  const bigDecision = vsRaise || sandwich || p.commit >= 0.45;
   const wRead = bigDecision ? 0.8 : 0.5;
   let pCont = (1 - wRead) * pTheory + wRead * pRead;
   let why = `MDF ${(p.mdf * 100).toFixed(0)}% × 라인(블러프 가능성 ${(p.bluffy * 100).toFixed(0)}%) → 레인지 ${(defend * 100).toFixed(0)}% 수비, 내 패 상위 ${(rr * 100).toFixed(0)}% · 라인 상대 승률 ${(p.eq * 100).toFixed(0)}% vs 필요 ${(ctx.potOdds * 100).toFixed(0)}%${bigDecision ? ' (큰 결정: 읽기 위주)' : ''}`;
   // 승률이 가격보다 확실히 높으면(작은 벳에 오버카드 등) 랭크와 상관없이 계속
-  if (margin >= 0.08 && !vsRaise) pCont = Math.max(pCont, 0.95);
+  if (margin >= 0.08 && !vsRaise && !sandwich) pCont = Math.max(pCont, 0.95);
+  if (sandwich && myStr < 0.9) { pCont *= 0.45; why += ' · 벳과 레이즈 사이에 끼임: 넛급 아니면 신중'; }
   if (draw && ctx.spr > 3 && margin >= -0.08 && !vsRaise) { pCont = Math.max(pCont, 0.8); why += ' · 드로우 + 깊은 스택(임플라이드)'; }
   // 레이즈: 밸류는 상대 계속 범위보다 앞설 때만, 블러프 레이즈는 강한 드로우·블로커
   const river = ctx.street === 'river';

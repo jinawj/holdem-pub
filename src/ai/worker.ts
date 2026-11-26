@@ -1,6 +1,6 @@
 // Web Worker 진입점: AI 계산을 화면과 분리
-import { decide } from './v2';
-import type { AiMemory, AiProfile } from './v2';
+import { decide } from './adapter';
+import type { AnyMemory as AiMemory, AnyProfile as AiProfile } from './adapter';
 import type { PlayerView } from '../engine/view';
 
 const rand = () => {

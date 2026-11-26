@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ACTION_GAP_MS, CHIP_ANIM_MS, HAND_END_PAUSE_MS, MIN_THINK_MS } from '../config';
 import { askAi } from '../ai/client';
-import { newMemory } from '../ai/v2';
+import { baselineProfile, newMemoryFor } from '../ai/adapter';
 import { centerPots, legalActions, actionLabel } from '../engine/hand';
 import { describeHand } from '../engine/evaluator';
 import { aliveSeats, currentLevel, LEVELS } from '../engine/tournament';
 import { fmt } from './Chips';
 import { Controls } from './Controls';
-import { aiSpeedMult, baselineProfile, GameSave, HUMAN_SEAT, useStore, viewFor } from './store';
+import { aiSpeedMult, GameSave, HUMAN_SEAT, useStore, viewFor } from './store';
 import { SeatModel, Table, TableModel } from './Table';
 
 export function buildTableModel(g: GameSave, thinkingSeat: number | null): TableModel {
@@ -149,7 +149,8 @@ export function Game() {
       // 내 결정 시점의 "AI 기준" (기록만)
       const view = viewFor(game, HUMAN_SEAT);
       const idx = h.actions.length;
-      askAi(view, baselineProfile, newMemory(), 0, false).then((d) => useStore.getState().setBaseline({ actionIndex: idx, seat: HUMAN_SEAT, memo: d.memo })).catch(() => {});
+      const bp = baselineProfile(game.settings.aiVersion ?? 'v2');
+      askAi(view, bp, newMemoryFor(bp), 0, false).then((d) => useStore.getState().setBaseline({ actionIndex: idx, seat: HUMAN_SEAT, memo: d.memo })).catch(() => {});
       return;
     }
     const seat = h.toAct!;
