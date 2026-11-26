@@ -45,7 +45,8 @@ export function readStacks(view: PlayerView): StackRead {
   const notes: string[] = [];
   notes.push(`스택: 나 ${myBB.toFixed(0)}BB (평균 ${avgBB.toFixed(0)}BB${isLeader ? ', 칩리더' : ''})`);
   if (shortBehind) notes.push(`뒤에 숏스택 ${shortBehind}명(올인 받아칠 수 있음)`);
-  if (bigBehind && !isLeader) notes.push(`뒤에 나를 커버하는 ${bigBehind}명`);
+  // 다들 깊으면(60BB+) 누가 몇 칩 더 많은지는 판단에 안 씀 → 표시도 하지 않음
+  if (bigBehind && !isLeader && myBB <= 60) notes.push(`뒤에 나를 커버하는 ${bigBehind}명`);
   if (pressure > 0.2) notes.push(`중간 스택 상대로 압박 가능(${Math.round(pressure * 100)}%)`);
   return { myBB, avgBB, isLeader, behind, shortBehind, bigBehind, pressure, notes };
 }
@@ -61,7 +62,10 @@ export function riskPremium(view: PlayerView, villainSeat: number): number {
   if (!v) return 0;
   const myBB = (me.stack + me.committed) / bb, vBB = (v.stack + v.committed) / bb;
   const R = AI_V3.riskPremium;
-  if (vBB < myBB) return R.covering; // 내가 커버: 져도 살아남음
   if (myBB < 10) return R.short;
-  return R.coveredBase + R.coveredDeep * Math.min(1, (myBB - 10) / 30);
+  const full = R.coveredBase + R.coveredDeep * Math.min(1, (myBB - 10) / 30);
+  // 내가 커버해도 지면 거의 다 잃는다면(상대가 내 스택의 절반 이상) 생존 부담은 거의 같다
+  //  → 1칩 차이로 판단이 뒤집히지 않게 '지면 남는 비율'로 연속 보간 (상대 ≤ 내 절반: 0, 같음: 전부)
+  if (vBB < myBB) return R.covering + (full - R.covering) * Math.max(0, Math.min(1, (vBB / myBB - 0.5) / 0.5));
+  return full;
 }

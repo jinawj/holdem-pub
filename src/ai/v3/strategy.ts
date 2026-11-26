@@ -133,6 +133,8 @@ export function gutBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     if (L.canRaise) {
       // 크기: 중급은 보드 따라, 초급은 대충 (강하면 크게 — 사람다운 버릇)
       let fr = skill.betSize ? (p.wetBoard ? 0.7 : 0.45) : classRank(c) >= 4 ? 0.75 : 0.5;
+      // 중급(감 브레인)도 밸류는 크게: 상대(하수~중수)는 크기와 상관없이 잘 따라오므로 작은 밸류벳은 손해
+      if (skill.betSize && classRank(c) >= 4) fr = Math.max(fr, 0.66);
       if (river && c === 'monster') fr = 0.85;
       if (ctx.spr < 1.3) fr = 9;
       const to = betTo(ctx, fr);
@@ -195,9 +197,15 @@ export function gutBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     // 승률이 가격보다 확실히 높으면(오버카드+거트샷 등) 에어라도 따라감
     if (p.eq >= ctx.potOdds + 0.08 && aggrCount < 2) { cont = Math.max(cont, 0.75); if (c === 'air') why = '패는 없지만 승률이 가격보다 높음'; }
   }
+  // 큰 벳 경계(Lv2~4): 벳 크기를 세밀하게 읽진 못해도 "턴·리버에 팟만큼 걸면 센 패"는 안다
+  //  (팟 오즈 뒤에 건다: 레인지를 못 읽는 승률로 큰 벳 상한을 다시 풀지 않게. 승률이 가격보다 20%p+ 높을 때만 예외)
+  if (skill.bigBetFear && !skill.betSize && S !== 'flop' && ctx.betFrac >= 0.75 && !(skill.potOdds && p.eq >= ctx.potOdds + 0.2)) {
+    const capC = c === 'medium' ? (river ? 0.28 : 0.5) : c === 'weak' ? 0.1 : c === 'air' ? 0.03 : c === 'strong' && river ? 0.75 : 1;
+    if (cont > capC) { cont = capC; why = '큰 벳이라 원페어로는 겁남'; }
+  }
   if (p.eq < 0.08 && c !== 'monster') cont *= 0.4;
-  // 초급의 '이미 많이 넣었으니' 심리 (매몰 비용): 스택의 40% 이상 들어갔으면 더 따라감
-  if (skill.level <= 3) {
+  // 초급(Lv1~2)의 '이미 많이 넣었으니' 심리 (매몰 비용): 스택의 40% 이상 들어갔으면 더 따라감. Lv3부터는 넣은 돈은 잊고 지금 가격만 봄
+  if (skill.level <= 2) {
     const me = ctx.view.seats.find((s) => s.seat === ctx.view.mySeat)!;
     if (me.startStack > 0 && (me.startStack - me.stack) / me.startStack >= 0.4) { cont = Math.min(1, cont + 0.15); why += ' · 이미 많이 넣어서 따라감'; }
   }

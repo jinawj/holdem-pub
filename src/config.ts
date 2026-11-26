@@ -106,9 +106,10 @@ export const AI_V3 = {
   boardDanger: [0.2, 0.3, 0.5, 0.7, 0.85, 1, 1, 1, 1, 1],
   /** 개념을 쓰기 시작하는 레벨 */
   from: {
+    bigBetFear: 2, // 턴·리버 큰 벳(팟 75%+)은 센 패 — 원페어로 끝까지 안 감 (벳 크기를 제대로 읽는 Lv5 전 단계)
     potOdds: 3, // 팟 오즈
     position: 4, // 포지션 (IP/OOP)
-    lineBasic: 4, // 라인 읽기: 레이즈·체크레이즈는 강하다
+    lineBasic: 3, // 라인 읽기: 레이즈·체크레이즈는 강하다
     betSize: 5, // 벳 크기가 말하는 것 (작으면 넓게, 크면 양극화)
     plan: 5, // 이전 스트리트의 내 계획을 기억
     lineFull: 6, // 라인 읽기: 캡·지연·프로브·블러프 가능성
@@ -126,10 +127,12 @@ export const AI_V3 = {
   /** 집중력 흐트러짐: 이 비율만큼 '수동적인 쪽'(체크·콜)으로 흐트러짐 */
   slip: [0.12, 0.1, 0.08, 0.06, 0.04, 0.03, 0.02, 0.01, 0, 0],
   /** 하수의 '페어면 좋은 패' 과신 (중간 패 계속 비율 하한) */
-  pairPride: [0.85, 0.8, 0.7, 0.55, 0.4, 0, 0, 0, 0, 0],
+  pairPride: [0.85, 0.8, 0.6, 0.5, 0.4, 0, 0, 0, 0, 0],
   /** 이 확률 미만 행동은 고르지 않음 */
   tailCut: 0.05,
   tailCutGut: 0.1,
+  /** 초급(Lv1~3): 판단과 반대인 15% 미만 행동은 고르지 않음 (리뷰 4차: '페어니까 따라감'인데 16% 폴드 등) */
+  tailCutLow: 0.15,
   /** 토너먼트 위험 프리미엄(올인 콜에 더 필요한 승률): 내가 커버할 때 / 10BB 미만 / 커버당할 때 기본 + 스택 깊이(10→40BB)만큼 */
   riskPremium: { covering: 0, short: 0.01, coveredBase: 0.03, coveredDeep: 0.05 },
   /** 숏스택(이 BB 이하) 오픈에 대한 리셔브·3벳 대응을 올인 EV로 계산 */
@@ -148,6 +151,27 @@ export const AI_V3 = {
   coldCall: { late: 1.5, mid: 1.15, sb: 0.45 },
   /** 오픈했다가 3벳을 받았을 때 계속(콜+4벳)할 비율 = 내 오픈 범위 × (포지션 있음 ip / 없음 oop) */
   vs3bet: { ip: 0.5, oop: 0.4 },
+  /**
+   * 플레이 스타일 (docs/v3-styles.md). 축은 −1..1 (0 = 표준). tiers: 이 스타일이 나오는 레벨 구간 (low Lv1~3 / mid 4~6 / high 7~10)
+   *  tight 참여 범위(+타이트) · aggro 공격성 · bluff 블러프 빈도 · sticky 끝까지 따라감 · trap 강한 패 숨기기 · limp 림프 버릇
+   */
+  styles: {
+    standard: { name: '정석형', tiers: ['low', 'mid', 'high'], axes: {} },
+    tag: { name: '타이트 공격형', tiers: ['mid', 'high'], axes: { tight: 0.5, aggro: 0.5 } },
+    lag: { name: '루즈 공격형', tiers: ['high'], axes: { tight: -0.35, aggro: 0.45, bluff: 0.3 } },
+    trapper: { name: '함정형', tiers: ['high'], axes: { trap: 0.5 } },
+    sticky: { name: '콜 경향', tiers: ['mid'], axes: { sticky: 0.6, aggro: -0.3 } },
+    scared: { name: '겁 많은 타입', tiers: ['mid', 'low'], axes: { tight: 0.6, sticky: -0.6, bluff: -0.6 } },
+    beginner: { name: '입문자', tiers: ['low'], axes: { limp: 0.8, sticky: 0.4, aggro: -0.4 } },
+    station: { name: '콜스테이션', tiers: ['low'], axes: { sticky: 0.75, tight: -0.3, aggro: -0.5 } },
+    maniac: { name: '막 지르는 타입', tiers: ['low'], axes: { aggro: 0.8, bluff: 0.8, tight: -0.5 } },
+  },
+  /** 같은 스타일이라도 레벨이 높을수록 덜 극단적 (축 배수) */
+  styleScale: { low: 1, mid: 0.8, high: 0.6 },
+  /** 축 1.0일 때 옮기는 확률 몫 */
+  styleEffect: { tight: 0.35, looseMaxPct: 55, limp: 0.5, aggroPre: 0.3, bluff: 0.6, sticky: 0.45, stickyMinEq: 0.12, aggroPost: 0.3, bluffPost: 0.5, trap: 0.35 },
+  /** 임플라이드 오즈 콜(Lv4+): 유효 스택 / 콜 금액이 이 배수 이상이면 포켓페어·수딧 커넥터를 이 비율로 콜 */
+  impliedOdds: { pairRatio: 18, pairCall: 0.8, scRatio: 50, scCall: 0.6 },
   /** 헤즈업 테이블 SB 오픈 범위(%) */
   huOpen: 80,
   /** 레인지 브레인 블러프 비율 배수 (이론값 b/(P+2b) 대비). 리버 1 미만 = 사람들이 리버에서 덜 접는 것 반영 */
@@ -157,7 +181,9 @@ export const AI_V3 = {
   /** 리버 솔버: 블러프 캐처 콜 배수 기본값 (× 상대 블러프 가능성/평균) */
   solverCallScale: 0.85,
   /** 레인지 추정: 벳·레이즈 레인지 속 블러프(세미블러프 포함) 비중 (평균적인 사람 기준, 라인·기억이 배수로 조정) */
-  rangeBluffShare: { bet: { flop: 0.38, turn: 0.3, river: 0.22 }, raise: { flop: 0.28, turn: 0.2, river: 0.1 } },
+  rangeBluffShare: { bet: { flop: 0.38, turn: 0.3, river: 0.1 }, raise: { flop: 0.28, turn: 0.2, river: 0.1 } },
+  /** 리버 벳 블러프 비중 배수 (기본 river 값 = 팟 50~110% 벳): 작은 벳 16% / 오버벳 8% 정도 */
+  riverBluffBySize: { small: 1.6, over: 0.8 },
   /** 몬테카를로 샘플 */
   mc: { normal: 900, quick: 260 },
   /** 리버 솔버: 버킷 수, 반복, 시간 상한(ms) */
@@ -165,8 +191,8 @@ export const AI_V3 = {
   /** 프리플랍: 레벨별 경계 흐림(백분위 폭), 림프 성향, 콜 과다 배수, 푸시 경계 흐림(BB) */
   pre: {
     width: [5.5, 5, 4.4, 3.6, 3.1, 2.7, 2.4, 2.2, 2.0, 1.8],
-    limp: [0.3, 0.25, 0.18, 0.08, 0.04, 0, 0, 0, 0, 0],
-    callMult: [1.45, 1.35, 1.25, 1.12, 1.05, 1, 1, 1, 1, 1],
+    limp: [0.32, 0.26, 0.1, 0.06, 0.03, 0, 0, 0, 0, 0], // Lv3부터 시작 패를 고름(림프·과다 콜이 크게 줄어듦)
+    callMult: [1.5, 1.4, 1.12, 1.08, 1.04, 1, 1, 1, 1, 1],
     pushWidth: [1.1, 0.9, 0.75, 0.35, 0.25, 0.15, 0.1, 0.07, 0.05, 0.02],
     threeBetMult: [0.6, 0.7, 0.8, 0.9, 1, 1.05, 1.1, 1.15, 1.2, 1.2],
     bluff3bet: [0, 0, 0, 0.1, 0.2, 0.3, 0.4, 0.45, 0.5, 0.5],

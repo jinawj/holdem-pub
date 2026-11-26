@@ -121,7 +121,9 @@ export function buildRange(view: PlayerView, seat: number, o: RangeOpts): Range 
       const frac = potBefore > 0 ? a.amount / potBefore : 0.5;
       const raise = a.type === 'raise';
       const base = raise ? AI_V3.rangeBluffShare.raise : AI_V3.rangeBluffShare.bet;
-      const beta = Math.max(0.03, Math.min(0.5, base[a.street as 'flop' | 'turn' | 'river'] * bm));
+      // 리버 벳은 크기별로: 작은 벳(팟 50% 이하)은 블러프가 더 섞이고, 오버벳은 덜 (사람 경향)
+      const rSize = river && !raise ? (frac <= 0.5 ? AI_V3.riverBluffBySize.small : frac > 1.1 ? AI_V3.riverBluffBySize.over : 1) : 1;
+      const beta = Math.max(0.03, Math.min(0.5, base[a.street as 'flop' | 'turn' | 'river'] * rSize * bm));
       const k = raise ? 4 : 2.5 + Math.max(0, frac - 0.6) * 1.5; // 크게 걸수록 밸류 쪽이 더 강함
       let V = 0, Bm = 0;
       const vv = new Float64Array(1326), bb2 = new Float64Array(1326);

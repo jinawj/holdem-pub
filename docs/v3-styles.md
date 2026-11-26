@@ -1,6 +1,6 @@
 # AI v3 플레이 스타일·성격 설계 (초안, 2026-11-26)
 
-> 상태: **설계만**. v3 실력(표준)이 충분히 올라온 뒤 구현. v3를 앱에 연결할 때 v2의 습관 라벨(habits·leaks·텔)은 제거하고 이 체계로 바꾼다.
+> 상태: **1차 구현(2026-11-27)** — 축 6개(tight·aggro·bluff·sticky·trap·limp)와 스타일 9종(`src/ai/v3/style.ts`, config `AI_V3.styles`). 아직 안 한 것: balance·sizing·tilt·fearLeader·donk 축, 압박형 칩리더, 중급 '레귤러 지망생'·'틸트형'. v3를 앱에 연결할 때 v2의 습관 라벨(habits·leaks·텔)은 제거하고 이 체계로 바꾼다.
 > 근거: 사용자 요청 + 리뷰어(Sonnet) 제안 3회분.
 
 ## 1. 원칙

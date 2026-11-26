@@ -12,6 +12,7 @@ import { rememberShowdown } from './line';
 import { preflopPolicy } from './preflop';
 import { skillOf, tierName } from './skill';
 import { riverSolve } from './solver';
+import { applyStyle, styleAxes, styleName, stylesFor } from './style';
 import { BrainOut, evaluate, gutBrain, rangeBrain } from './strategy';
 import type { AiDecision, DecideOpts, Intent, Option, V3Memory, V3Profile } from './types';
 import { strengthOnBoard } from '../core/equity';
@@ -22,7 +23,7 @@ export { skillOf, tierName } from './skill';
 
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
-export function makeProfileV3(level: number): V3Profile { return { version: 3, level }; }
+export function makeProfileV3(level: number, style?: string): V3Profile { return style && style !== 'standard' ? { version: 3, level, style } : { version: 3, level }; }
 export function newMemoryV3(): V3Memory { return { version: 3, plans: [], opp: {}, handsSeen: 0 }; }
 
 function isRiverNuts(view: PlayerView): boolean {
@@ -80,6 +81,13 @@ export function decide(view: PlayerView, prof: V3Profile, mem: V3Memory, opts: D
     }
   }
   probs = norm(probs);
+  // 플레이 스타일: 판단은 그대로, 같은 판단 안에서 기우는 쪽만 (상한·명확한 자리·안전장치는 이 뒤에 그대로)
+  const styleNote = applyStyle(options, probs, intents, ctx, styleAxes(prof.style, skill.level), eqRaw);
+  if (styleNote) {
+    probs = norm(probs);
+    thoughts.push(`스타일(${styleName(prof.style)}): ${styleNote}`);
+    if (brainTop >= 0) brainTop = probs.indexOf(Math.max(...probs));
+  }
   // 집중력 흐트러짐: 하수는 일부가 체크·콜 쪽으로
   if (skill.slip > 0) {
     const passive: number[] = options.map((o) => (o.act === 'check' || o.act === 'call' ? 1 : 0));
@@ -113,33 +121,44 @@ export function decide(view: PlayerView, prof: V3Profile, mem: V3Memory, opts: D
   // 안전장치
   const L = view.legal;
   const riverNuts = view.street === 'river' && !L.canCheck ? isRiverNuts(view) : false;
+  // 리버에서 이길 수 있는 패가 없으면 콜 금지가 우선 (아주 작은 콜이어도 폴드)
+  const cantWinRiver = view.street === 'river' && !L.canCheck && eqRaw !== undefined && eqRaw <= 0.0001;
   probs = probs.map((x, i) => {
     const o = options[i];
     let bad: string | null = null;
     if (o.act === 'fold' && L.canCheck) bad = '체크 가능 상황 폴드 금지';
     else if (o.act === 'fold' && view.street === 'preflop' && ctx.key === 'AA') bad = 'AA 폴드 금지';
     else if (o.act === 'fold' && riverNuts) bad = '넛 폴드 금지';
-    else if (o.act === 'fold' && ctx.toCall > 0 && ctx.potOdds < 0.05) bad = '아주 작은 콜 폴드 금지';
-    else if (o.act === 'call' && view.street === 'river' && eqRaw !== undefined && eqRaw <= 0.0001) bad = '이길 수 없는 리버 콜 금지';
+    else if (o.act === 'fold' && ctx.toCall > 0 && !cantWinRiver && ((ctx.potOdds < 0.05 && !(eqRaw !== undefined && eqRaw < ctx.potOdds * 0.6)) || (ctx.potOdds < 0.1 && eqRaw !== undefined && eqRaw >= ctx.potOdds * 1.3))) bad = '아주 작은 콜 폴드 금지';
+    else if (o.act === 'call' && cantWinRiver) bad = '이길 수 없는 리버 콜 금지';
     else if (o.act === 'raise' && (!L.canRaise || !o.to)) bad = '레이즈 불가';
+    else if (o.act === 'raise' && ctx.boardPlays && ctx.facingBet) bad = '보드 플레이 패로 레이즈 금지';
     else if (o.act === 'check' && !L.canCheck) bad = '체크 불가';
     else if (o.act === 'call' && L.canCheck) bad = '콜할 금액 없음';
     if (bad && x > 0) guards.push(bad);
     return bad ? 0 : x;
   });
+  // 보드 플레이(나눠 먹기)로 먼저 벳은 가끔만(나눠 먹을 패를 접게 하는 정도): 벳 합계 30% 이하
+  if (ctx.boardPlays && !ctx.facingBet) {
+    const ri = options.map((o, i) => (o.act === 'raise' ? i : -1)).filter((i) => i >= 0), ci = options.findIndex((o) => o.act === 'check');
+    const rs = ri.reduce((a, i) => a + probs[i], 0), tot = probs.reduce((a, b) => a + b, 0);
+    if (ci >= 0 && tot > 0 && rs / tot > 0.3) { const k = (0.3 * tot) / rs; ri.forEach((i) => { probs[ci] += probs[i] * (1 - k); probs[i] *= k; }); guards.push('보드 플레이 패 벳 제한'); }
+  }
   // 콜·체크가 빠졌으면 다시 넣기
   if (L.canCheck && !options.some((o) => o.act === 'check')) { options.push({ key: 'check', act: 'check' }); probs.push(0); intents.push('none'); }
   if (!L.canCheck && !options.some((o) => o.act === 'call')) { options.push({ key: 'call', act: 'call' }); probs.push(0); intents.push('none'); }
-  if (!probs.some((x) => x > 0)) probs = options.map((o) => (o.act === (L.canCheck ? 'check' : 'call') ? 1 : 0));
+  if (cantWinRiver && !options.some((o) => o.act === 'fold')) { options.push({ key: 'fold', act: 'fold' }); probs.push(0); intents.push('fold'); }
+  if (!probs.some((x) => x > 0)) probs = options.map((o) => (o.act === (L.canCheck ? 'check' : cantWinRiver ? 'fold' : 'call') ? 1 : 0));
   probs = norm(probs);
   // 감 브레인(하수~중수)은 드문 행동을 더 넓게 자름: 판단과 반대인 6~10%짜리 블러프·플로트가 기계적으로 보임
   // 솔버: 거의 넛(승률 90%+)이면 체크는 10% 이하로 (리버엔 다음이 없음)
-  if (brain === 'solver' && !ctx.facingBet && eqRaw !== undefined && eqRaw >= 0.9) {
+  // 리버 강한 패(솔버 90%+, 감 브레인 85%+)를 먼저 체크하는 건 10% 이하 (리버엔 다음이 없음, 하수도 '맞았으면 벳')
+  if ((brain === 'solver' || brain === 'gut') && view.street === 'river' && !ctx.facingBet && eqRaw !== undefined && eqRaw >= (brain === 'solver' ? 0.9 : 0.85)) {
     const ci = options.findIndex((o) => o.act === 'check');
     const bets = options.map((o, i) => (o.act === 'raise' ? i : -1)).filter((i) => i >= 0);
     if (ci >= 0 && bets.length && probs[ci] > 0.1) { const m = probs[ci] - 0.1; probs[ci] = 0.1; const bs = bets.reduce((a, i) => a + probs[i], 0); bets.forEach((i) => (probs[i] += bs > 0 ? (m * probs[i]) / bs : m / bets.length)); }
   }
-  const tail = brain === 'gut' || brain === 'solver' || (brain === 'pre' && skill.level <= 6) ? AI_V3.tailCutGut : AI_V3.tailCut;
+  const tail = skill.level <= 3 && (brain === 'gut' || brain === 'pre') ? AI_V3.tailCutLow : brain === 'gut' || brain === 'solver' || (brain === 'pre' && skill.level <= 6) ? AI_V3.tailCutGut : AI_V3.tailCut;
   const t = probs.map((x) => (x < tail ? 0 : x));
   if (t.some((x) => x > 0)) probs = norm(t);
   // 고르기
@@ -154,7 +173,7 @@ export function decide(view: PlayerView, prof: V3Profile, mem: V3Memory, opts: D
   return {
     type: chosen.act, to, thinkMs: thinkTime(ctx, probs, chosen, skill.level, rand, opts.speedMult ?? 1),
     memo: {
-      street: view.street, persona: `v3 ${tierName(skill.level)}`, level: skill.level,
+      street: view.street, persona: `v3 ${tierName(skill.level)}${prof.style ? ' · ' + styleName(prof.style) : ''}`, level: skill.level,
       equity: eqRaw ?? equity, potOdds: ctx.toCall > 0 ? ctx.potOdds : undefined, handPct: ctx.pct,
       options: options.map((o, i) => ({ key: o.key, p: +probs[i].toFixed(3), ev: o.ev !== undefined ? Math.round(o.ev) : undefined })),
       chosen: chosen.act === 'raise' ? `raise:${to}` : chosen.key,
@@ -217,16 +236,25 @@ function sanitizeIntent(i: Intent, act: string, eq: number | undefined): Intent 
 }
 
 // ---------- 테이블 배정·표시 (앱용) ----------
-/** 난이도 범위 안에서 레벨을 고르게 배정 (v3는 성향이 아직 없어 레벨만). 좌석 순서는 섞음 */
+/** 난이도 범위 안에서 레벨을 고르게 배정하고, 레벨 구간에 맞는 스타일을 붙임 (같은 스타일이 몰리지 않게 돌아가며). 좌석 순서는 섞음 */
 export function createProfilesV3(minLv: number, maxLv: number, n: number, rand: () => number): V3Profile[] {
   const out: V3Profile[] = [];
-  for (let i = 0; i < n; i++) out.push(makeProfileV3(n === 1 ? Math.round((minLv + maxLv) / 2) : Math.round(minLv + ((maxLv - minLv) * i) / (n - 1))));
+  const used: Record<string, number> = {};
+  for (let i = 0; i < n; i++) {
+    const level = n === 1 ? Math.round((minLv + maxLv) / 2) : Math.round(minLv + ((maxLv - minLv) * i) / (n - 1));
+    const opts = stylesFor(level);
+    const least = Math.min(...opts.map((s) => used[s] ?? 0));
+    const pool = opts.filter((s) => (used[s] ?? 0) === least);
+    const style = pool[Math.floor(rand() * pool.length)];
+    used[style] = (used[style] ?? 0) + 1;
+    out.push(makeProfileV3(level, style));
+  }
   for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
   return out;
 }
 
 export function profileLabelV3(p: V3Profile): string {
-  return `v3 ${tierName(p.level)} Lv${p.level}`;
+  return `v3 ${tierName(p.level)} Lv${p.level}${p.style ? ' · ' + styleName(p.style) : ''}`;
 }
 
 /** 이긴 뒤 패를 자진해서 보여 줄지: 하수는 자랑하듯 자주, 고수는 거의 안 보여 줌 */

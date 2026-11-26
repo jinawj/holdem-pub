@@ -144,13 +144,23 @@ function basePolicy(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean, 
     if (ctx.effBB > 40 && isBluffCandidate(ctx.key) && coldCallers === 0) p3 = p3 + (1 - p3) * b3;
     p3 = Math.min(1, p3);
     const cpct = skill.position ? playablePct(ctx.key, pct, ctx.effBB) : pct;
-    const pc = Math.max(0, sig((v + band - cpct) / w) - p3);
+    let pc = Math.max(0, sig((v + band - cpct) / w) - p3);
     const ip = !isBB && !isSB;
+    // 임플라이드 오즈(Lv4+): 스택이 콜 금액보다 아주 크면 포켓페어(셋)·수딧 커넥터는 싸게 보고 큰 팟을 노린다
+    if (skill.position && !isSB && coldCallers <= 1 && ctx.toCall > 0) {
+      const ratio = (ctx.effBB * bb) / ctx.toCall;
+      const R = 'AKQJT98765432';
+      const k = ctx.key, r1 = R.indexOf(k[0]), r2 = R.indexOf(k[1]);
+      const pair = k.length === 2, sc = k[2] === 's' && r2 - r1 <= 2 && r1 >= R.indexOf('J') && r2 <= R.indexOf('4');
+      const io = AI_V3.impliedOdds;
+      const want = pair && ratio >= io.pairRatio ? io.pairCall : sc && (ip || isBB) && ratio >= io.scRatio ? io.scCall * (r2 - r1 === 1 ? 1 : 0.6) : 0;
+      if (want > pc) pc = Math.min(want, 1 - p3);
+    }
     let r = raise(openTo * (ip ? 3 : 4) + coldCallers * openTo);
     if (r.to! > 0.35 * myTotal) r = raise(L.maxRaiseTo);
     const opts: Option[] = L.canRaise ? [r, call, fold] : [call, fold];
     const probs = L.canRaise ? [p3, pc, Math.max(0, 1 - p3 - pc)] : [p3 + pc, Math.max(0, 1 - p3 - pc)];
-    const intents: Intent[] = L.canRaise ? [pct < v ? 'value' : 'bluff', 'none', 'fold'] : ['none', 'fold'];
+    const intents: Intent[] = L.canRaise ? [pct < v || lvl <= 3 ? 'value' : 'bluff', 'none', 'fold'] : ['none', 'fold'];
     return { options: opts, probs, intents, why: `상대 오픈 ${o.toFixed(0)}% → 3벳 ${v.toFixed(1)}% · 콜 ${band.toFixed(1)}%` };
   }
 

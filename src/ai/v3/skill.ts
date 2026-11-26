@@ -6,6 +6,7 @@ export interface Skill {
   rangeRead: number;
   eqNoise: number;
   boardDanger: number;
+  bigBetFear: boolean;
   potOdds: boolean;
   position: boolean;
   lineBasic: boolean;
@@ -31,6 +32,7 @@ export function skillOf(level: number): Skill {
     rangeRead: lv(AI_V3.rangeRead, L),
     eqNoise: lv(AI_V3.eqNoise, L),
     boardDanger: lv(AI_V3.boardDanger, L),
+    bigBetFear: L >= f.bigBetFear,
     potOdds: L >= f.potOdds,
     position: L >= f.position,
     lineBasic: L >= f.lineBasic,

@@ -26,6 +26,7 @@ export interface Ctx {
   key: string;
   pct: number;
   madeCat: number; // 내 카드가 관여한 족보 (보드만으로 된 족보면 0)
+  boardPlays: boolean; // 리버 보드 5장이 그대로 내 최고 패
   flushDraw: boolean;
   oesd: boolean;
   gutshot: boolean;
@@ -80,6 +81,7 @@ export function buildContext(view: PlayerView): Ctx {
   for (const a of view.actionLog) if (a.street === 'preflop' && (a.type === 'raise' || a.type === 'bet')) { raisesPre++; lastPreRaiser = a.seat; }
   const [h1, h2] = view.holeCards;
   let madeCat = 0;
+  let boardPlays = false; // 리버에 보드 5장이 그대로 내 최고 패 (나눠 먹기가 최선)
   if (view.board.length >= 3) {
     const all = evaluate([h1, h2, ...view.board]);
     madeCat = categoryOf(all);
@@ -93,7 +95,7 @@ export function buildContext(view: PlayerView): Ctx {
       const uses = hr.some((r) => br.includes(r)) || (hr[0] === hr[1] && boardCat === 2 && paired.length > 0 && hr[0] > Math.min(...paired));
       if (!uses) madeCat = 0;
     }
-    if (view.board.length === 5 && all === evaluate(view.board)) madeCat = 0;
+    if (view.board.length === 5 && all === evaluate(view.board)) { madeCat = 0; boardPlays = true; }
   }
   const dHero = drawInfo([h1, h2], view.board);
   const dBoard = view.board.length >= 4 ? drawInfo([], view.board) : { flushDraw: false, oesd: false, gutshot: false };
@@ -104,7 +106,7 @@ export function buildContext(view: PlayerView): Ctx {
     ip: postOrder[postOrder.length - 1] === view.mySeat, postOrder,
     behind: view.street === 'preflop' ? behindPreflop(view, view.mySeat) : 0,
     raisesPre, lastPreRaiser, facingBet: toCall > 0,
-    key: handKey(h1, h2), pct: handPct(h1, h2), madeCat,
+    key: handKey(h1, h2), pct: handPct(h1, h2), madeCat, boardPlays,
     flushDraw: dHero.flushDraw && !dBoard.flushDraw, oesd: dHero.oesd && !dBoard.oesd, gutshot: dHero.gutshot && !dBoard.gutshot,
     wet: tex.wet, paired: tex.paired,
     potOdds: toCall > 0 ? toCall / (pot + toCall) : 0,

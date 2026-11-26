@@ -59,7 +59,10 @@ export function runHand(h: HandState, actor: Actor, rs: RunStats | null, players
       const view = makePlayerView(h, seat, playersLeft);
       const ctx = buildContext(view);
       const opt = { key: d.type, act: d.type, to: d.to } as const;
-      const why = forbidden(opt as any, ctx, { eq: d.memo.street === 'river' ? d.memo.equity : undefined, riverNuts: h.street === 'river' && d.type === 'fold' ? riverNuts(h, seat) : false, evCut: 1 });
+      const eqR = d.memo.street === 'river' ? d.memo.equity : undefined;
+      let why = forbidden(opt as any, ctx, { eq: eqR, riverNuts: h.street === 'river' && d.type === 'fold' ? riverNuts(h, seat) : false, evCut: 1 });
+      // 이길 수 없는 리버에선 아주 작은 벳이어도 폴드가 정답 (두 규칙이 겹칠 때 폴드 우선)
+      if (why === '아주 작은 콜 금액 폴드 금지' && eqR !== undefined && (eqR <= 0.0001 || eqR < ctx.potOdds * 0.6)) why = null;
       if (why) rs.forbidden[why] = (rs.forbidden[why] ?? 0) + 1;
       const evs = d.memo.options.filter((o) => o.ev !== undefined);
       if (evs.length > 1) {

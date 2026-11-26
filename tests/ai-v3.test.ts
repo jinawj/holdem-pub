@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import * as V3 from '../src/ai/v3';
 import { buildContext } from '../src/ai/v3/context';
+import { applyStyle, styleAxes, stylesFor } from '../src/ai/v3/style';
 import { parseCards } from '../src/engine/cards';
 import { startHand } from '../src/engine/hand';
 import { seedFromNumber, seedToString } from '../src/engine/rng';
@@ -57,5 +58,33 @@ describe('AI v3', () => {
     expect(V3.skillOf(2).potOdds).toBe(false);
     expect(V3.skillOf(7).rangeStrategy).toBe(true);
     expect(V3.skillOf(10).solver).toBe(true);
+  });
+
+  it('초급 개념이 레벨마다 다름: Lv2 큰 벳 경계, Lv3 팟 오즈·레이즈는 강하다', () => {
+    expect(V3.skillOf(1).bigBetFear).toBe(false);
+    expect(V3.skillOf(2).bigBetFear).toBe(true);
+    expect(V3.skillOf(2).potOdds).toBe(false);
+    expect(V3.skillOf(3).potOdds).toBe(true);
+    expect(V3.skillOf(3).lineBasic).toBe(true);
+  });
+
+  it('스타일: 레벨 구간에 맞게 배정되고, 스타일은 확률만 민다', () => {
+    const r = rng(3);
+    for (const [lo, hi] of [[1, 3], [4, 6], [7, 10]]) {
+      for (const p of V3.createProfilesV3(lo, hi, 9, r)) {
+        if (p.style) expect(stylesFor(p.level)).toContain(p.style);
+      }
+    }
+    expect(styleAxes('station', 2).sticky).toBeGreaterThan(styleAxes('station', 9).sticky - 1e-9); // 높은 레벨일수록 덜 극단적
+    // 벳을 받은 자리: 콜스테이션은 폴드 몫 일부를 콜로
+    const ctx = { street: 'turn', facingBet: true, potOdds: 0.3, pct: 50, raisesPre: 1 } as any;
+    const opts = [{ key: 'fold', act: 'fold' }, { key: 'call', act: 'call' }] as any;
+    const probs = [0.6, 0.4];
+    expect(applyStyle(opts, probs, ['fold', 'bluffCatch'], ctx, styleAxes('station', 2), 0.3)).not.toBeNull();
+    expect(probs[1]).toBeGreaterThan(0.4);
+    // 승률이 아주 낮으면 스타일로도 콜을 만들지 않음
+    const p2 = [0.9, 0.1];
+    applyStyle(opts, p2, ['fold', 'bluffCatch'], ctx, styleAxes('station', 2), 0.05);
+    expect(p2[1]).toBeCloseTo(0.1);
   });
 });

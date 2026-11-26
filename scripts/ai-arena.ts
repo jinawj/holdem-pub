@@ -1,6 +1,7 @@
 // AI 전용 대결장 (화면 없음). v3 개발용.
 //  --mode vs      : v3 LvX vs v2 레귤러 LvX (Lv10은 v2 솔버) 헤즈업 듀플리케이트 — 퇴보 확인
 //  --mode ladder  : v3 레벨끼리 (실력 차이가 드러나는지)
+//  --mode ring    : 6인 링 v3×3 vs v2×3 (--opp v3:N 이면 v3 레벨끼리, --style ID 이면 v3 쪽 스타일)
 //  --mode log     : 6인 테이블, v3 여러 레벨이 치는 핸드를 생각 과정과 함께 기록 (리뷰어용)
 // 예) npx tsx scripts/ai-arena.ts --mode vs --pairs 1500 --levels 3,6,8,10
 //     npx tsx scripts/ai-arena.ts --mode ladder --pairs 1500
@@ -28,11 +29,11 @@ const t0 = Date.now();
 /** 한 좌석의 AI: 결정 함수 + 핸드 끝 처리 */
 interface Bot { name: string; decide: (view: any, rand: () => number) => any; endHand?: (h: HandState, seat: number) => void }
 
-function v3Bot(level: number): Bot {
-  const prof = V3.makeProfileV3(level);
+function v3Bot(level: number, style?: string): Bot {
+  const prof = V3.makeProfileV3(level, style);
   const mem = V3.newMemoryV3();
   return {
-    name: `v3 Lv${level}`,
+    name: `v3 Lv${level}${style ? ' ' + style : ''}`,
     decide: (view, rand) => V3.decide(view, prof, mem, { rand, quick: true }),
     endHand: (h, seat) => V3.observeHandV3(mem, seat, h.actions as any, h.board, shownCards(h)),
   };
@@ -124,9 +125,12 @@ if (mode === 'vs') {
   const rs = newRunStats();
   const res: number[] = [];
   const n = 6;
-  let v3s = [0, 2, 4].map(() => v3Bot(lvl)), v2s = [1, 3, 5].map(() => v2Bot(lvl, R.rand));
+  const oppArg = arg('opp', 'v2');
+  const oppBot = () => (oppArg.startsWith('v3:') ? v3Bot(+oppArg.split(':')[1]) : v2Bot(lvl, R.rand));
+  const styleArg = arg('style', '') || undefined;
+  let v3s = [0, 2, 4].map(() => v3Bot(lvl, styleArg)), v2s = [1, 3, 5].map(oppBot);
   for (let k = 0; k < hands; k++) {
-    if (k > 0 && k % 400 === 0) { v3s = [0, 2, 4].map(() => v3Bot(lvl)); v2s = [1, 3, 5].map(() => v2Bot(lvl, R.rand)); }
+    if (k > 0 && k % 400 === 0) { v3s = [0, 2, 4].map(() => v3Bot(lvl, styleArg)); v2s = [1, 3, 5].map(oppBot); }
     const seed = R.seedStr();
     const sts = Array.from({ length: n }, () => Math.round(lo + R.rand() * (hi - lo)));
     const btn = k % n;
@@ -147,7 +151,7 @@ if (mode === 'vs') {
     res.push(sum / 2);
   }
   const s = summarize(res);
-  console.log(`=== 6인 링 v3 Lv${lvl} ×3 vs v2 Lv${lvl} ×3 (스택 ${lo}~${hi}BB 무작위${anteBB ? ', BB 앤티 ' + anteBB + 'BB' : ''}, ${hands}핸드×2) — v3 3명 합계 BB/100핸드 ===`);
+  console.log(`=== 6인 링 v3 Lv${lvl}${styleArg ? ' ' + styleArg : ''} ×3 vs ${oppArg === "v2" ? "v2 Lv" + lvl : oppArg} ×3 (스택 ${lo}~${hi}BB 무작위${anteBB ? ', BB 앤티 ' + anteBB + 'BB' : ''}, ${hands}핸드×2) — v3 3명 합계 BB/100핸드 ===`);
   console.log(`${s.bb100.toFixed(1)} ${s.ci} ${s.sig.replace('우세', 'v3 우세').replace('열세', 'v3 열세')}`);
   console.log(problems(rs));
   console.log(timing(rs));

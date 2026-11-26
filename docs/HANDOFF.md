@@ -18,7 +18,7 @@
 |---|---|
 | PC에서 실행 | `npm run dev` |
 | 같은 와이파이 폰에서 | `npm run dev:phone` → 출력된 Network 주소 |
-| 단위 테스트(엔진·AI) | `npm test` (49개) |
+| 단위 테스트(엔진·AI) | `npm test` (54개) |
 | 모바일 화면 점검 | `npx playwright test mobile-audit` (12크기×6/8/10인 + 올인 쇼다운, 약 5분) |
 | 전체 화면 테스트 | `npm run e2e` |
 | AI 시험지 | `npm run ai:spots` (35문항 142건, 현재 100%) |
@@ -36,7 +36,7 @@ src/data/*.json          블라인드 표, 칩 색, 닉네임, 성향(personas),
 src/engine/              규칙 엔진 (순수 TS, UI 의존 금지). hand.ts=핸드 진행, positions.ts=데드 버튼, tournament.ts
 src/ai/core/             공용: equity.ts(에퀴티·강도 백분위·드로우), handrank.ts(169핸드), pushfold.ts(표 조회)
 src/ai/v2/               지금 앱이 쓰는 AI (성향×레벨, 습관·릭). v3의 비교 기준선 — 고치지 않음
-src/ai/v3/               개발 중인 AI (6-2절). 아직 앱에 연결 안 됨
+src/ai/v3/               개발 중인 AI (6-2절). 앱에서 'V3 (베타)'로 선택 가능 (src/ai/adapter.ts)
 src/ai/worker.ts,client.ts  Web Worker 실행
 src/game/                headless.ts(화면 없는 진행·시뮬), spot.ts(시험지 재현), summary.ts(핸드 기록), stats.ts
 src/ui/store.ts          게임 상태·저장·액션 (zustand)
@@ -84,10 +84,11 @@ scripts/                 sim, ai-spots, ai-match, ai-cli, ai-arena(v3 대결장)
   - `v3/solver.ts` 고수(Lv9+) 리버 미니 솔버: 리버 시작 레인지를 22묶음으로, 체크/벳 2가지/레이즈 1번 트리를 CFR+로 (40ms 상한)
   - `v3/preflop.ts` v2 프리플랍을 스타일 없이 표준으로 + 레벨 표. `v3/skill.ts` 레벨 → 보는 개념. 숫자는 전부 config `AI_V3`
 - 레벨 차이 = 일부러 틀리게가 아니라 **무엇을 보느냐**: 팟 오즈 Lv3+, 포지션·라인 기본 Lv4+, 벳 크기 의미·계획 기억 Lv5+, 라인 전체 Lv6+, 레인지 전략·상대 기억 Lv7+, 오버벳·리버 솔버 Lv9+. 승률 감각 오차·라인 반영 정도도 레벨별.
-- 플레이 스타일(TAG·루즈·스테이션 등)은 **나중에** `V3Profile.style`로 붙인다(지금은 표준 실력만).
+- 플레이 스타일: `v3/style.ts` + config `AI_V3.styles`(축: tight·aggro·bluff·sticky·trap·limp). 두뇌가 낸 확률만 밀고, 상한·안전장치는 그 뒤에 그대로. 레벨 구간별 목록(하수: 입문자·콜스테이션·막 지르는·겁 많은 / 중급: 정석·TAG·콜 경향·겁 많은 / 고수: 정석·TAG·LAG·함정형), 앱 배정은 `createProfilesV3`(구간 안에서 고르게 돌아가며).
 - 도구:
   - `npx tsx scripts/ai-arena.ts --mode vs --pairs 6000 --levels 4,6,8,10` : v3 vs v2 헤즈업 듀플리케이트 (약 2분)
-  - `npx tsx scripts/ai-arena.ts --mode ladder --pairs 6000` : v3 레벨끼리 (약 4~10분)
+  - `npx tsx scripts/ai-arena.ts --mode ladder --pairs 6000 [--pairsOf 1-2,2-3]` : v3 레벨끼리 헤즈업 (약 4~10분)
+  - `npx tsx scripts/ai-arena.ts --mode ring --level 8 [--opp v3:5] [--style lag] --hands 6000 --stackRange 20-150 --ante 0.125` : 6인 링(v3×3 vs v2×3 또는 v3 다른 레벨·표준). **실제 게임에 가장 가까운 기준** — 초급 레벨 차이·스타일 손익은 이걸로 잰다
   - `npx tsx scripts/ai-arena.ts --mode log --hands 45 --levels 7,8,9,10,9,10 --seed N --out reports/x.md` : 생각 과정 붙은 6인 기록
   - `npx tsx scripts/ai-diag.ts --level 10 --pairs 3000 [--worst --nworst 12] [--opp v3:5]` : 어디서 칩을 잃는지 + 최악 핸드의 생각 과정
 - 리뷰 루프: log를 `poker-reviewer` 에이전트(Sonnet, 노력 중간, `.claude/agents/poker-reviewer.md`)에게 고수·하수 테이블 따로 읽힘 → 모듈 수정 → vs·ladder로 측정. 헤즈업 100BB는 분산이 커서 6000쌍(1.2만 핸드)도 신뢰구간 ±15bb/100.
