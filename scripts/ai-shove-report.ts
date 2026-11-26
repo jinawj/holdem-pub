@@ -5,7 +5,6 @@
 // 실행: npx tsx scripts/ai-shove-report.ts [--v 1] [--ante 0|0.5] [--trials 4]
 import rank169 from '../src/data/hand_rank_169.json';
 import * as V2 from '../src/ai/v2';
-import * as V1 from '../src/ai/v1';
 import { equityVsRanges } from '../src/ai/v2/equity';
 import { pushMargin } from '../src/ai/v2/pushfold';
 import { COMBO_KEYS, parseCards } from '../src/engine/cards';
@@ -14,7 +13,7 @@ import { buildSpot, SpotDef } from '../src/game/spot';
 import { arg, makeRng, table } from './lib';
 
 const ver = arg('v', '2');
-const AI: any = ver === '1' ? V1 : V2;
+const AI: any = V2;
 const anteBB = +arg('ante', '0');
 const trials = +arg('trials', '4');
 const R = makeRng(9);

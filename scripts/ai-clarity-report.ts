@@ -4,7 +4,6 @@
 //  - 틀린 행동 중 릭(이름 붙은 구멍)이 발동한 것은 '의도된 구멍'으로 따로 셈
 // 실행: npx tsx scripts/ai-clarity-report.ts [--hands 1500] [--stack 100] [--v 1] [--examples 1]
 import * as V2 from '../src/ai/v2';
-import * as V1 from '../src/ai/v1';
 import { buildContext } from '../src/ai/v2/context';
 import { judgeClear, judgeLean } from '../src/ai/v2/clarity';
 import { startHand } from '../src/engine/hand';
@@ -17,7 +16,7 @@ const hands = +arg('hands', '1500');
 const stackBB = +arg('stack', '100');
 const ver = arg('v', '2');
 const showEx = arg('examples', '0') === '1';
-const AI: any = ver === '1' ? V1 : V2;
+const AI: any = V2;
 const R = makeRng(7);
 const BB = 200, N = 6;
 const ids = ['solver', 'reg', 'lag', 'nit', 'station', 'beginner', 'maniac'];

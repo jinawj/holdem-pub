@@ -1,6 +1,6 @@
 # 다음 세션 인수인계 (먼저 읽을 것)
 
-> 마지막 갱신 2026-11-25. 자세한 설계는 `docs/overview.md`, 진행 기록은 `docs/PROGRESS.md`, 결정 기록은 `docs/DECISIONS.md`.
+> 마지막 갱신 2026-11-26. 자세한 설계는 `docs/overview.md`, 진행 기록은 `docs/PROGRESS.md`, 결정 기록은 `docs/DECISIONS.md`.
 
 ## 1. 지금 상태 한눈에
 - 싱글 테이블 NLH 토너먼트 vs AI. React + Vite + TS, 서버 없음(정적 사이트), 기록은 각자 브라우저(IndexedDB).
@@ -34,9 +34,9 @@
 src/config.ts            튜닝 숫자 모음 (AI 속도·최소 고민 시간·액션 간격·연출 기준·난이도·AI 공통값)
 src/data/*.json          블라인드 표, 칩 색, 닉네임, 성향(personas), 169핸드 순위, 푸시/폴드 표
 src/engine/              규칙 엔진 (순수 TS, UI 의존 금지). hand.ts=핸드 진행, positions.ts=데드 버튼, tournament.ts
-src/ai/v1/               AI. index.ts=decide() 흐름, preflop.ts(푸시/폴드·기어 변화 gear()), postflop.ts,
-                         range.ts(상대 레인지), equity.ts, habits.ts(습관·릭), human.ts(실수 방향·텔·고민 시간·기억),
-                         persona.ts(레벨 효과 levelFx·프로필 생성·난이도 배정), guards.ts(금지 행동), pushfold.ts(표 조회)
+src/ai/core/             공용: equity.ts(에퀴티·강도 백분위·드로우), handrank.ts(169핸드), pushfold.ts(표 조회)
+src/ai/v2/               지금 앱이 쓰는 AI (성향×레벨, 습관·릭). v3의 비교 기준선 — 고치지 않음
+src/ai/v3/               개발 중인 AI (6-2절). 아직 앱에 연결 안 됨
 src/ai/worker.ts,client.ts  Web Worker 실행
 src/game/                headless.ts(화면 없는 진행·시뮬), spot.ts(시험지 재현), summary.ts(핸드 기록), stats.ts
 src/ui/store.ts          게임 상태·저장·액션 (zustand)
@@ -46,7 +46,7 @@ src/ui/layout.ts         좌석·보드·내 카드 크기·베팅칩 위치 계
 src/ui/Controls.tsx      베팅 조작부(25%/50%/Pot/2x, 직접 입력, 슬라이더)
 src/ui/styles.css        전체 스타일. 모바일 가로 낮은 화면은 @media (orientation: landscape) and (max-height: 500px)
 tests/                   engine/positions/ai 단위 테스트, tests/e2e(화면), tests/ai-spots/spots.json(AI 시험지)
-scripts/                 sim, ai-spots, ai-match, ai-cli, generate-hand-rank, generate-pushfold
+scripts/                 sim, ai-spots, ai-match, ai-cli, ai-arena(v3 대결장), ai-diag(v3 진단), generate-hand-rank, generate-pushfold
 ```
 
 ## 5. 지켜야 할 것 (깨지기 쉬운 곳)
@@ -64,21 +64,37 @@ scripts/                 sim, ai-spots, ai-match, ai-cli, generate-hand-rank, ge
 - 상대 착취(사람 분석)는 **하지 않기로 결정**. 쇼다운 기억 반응만 있음(설정에서 끌 수 있음).
 
 ## 6-1. AI v2 (2026-11-25~, 진행 중) — "사람의 포커적 사고" 모방
-- 앱·스크립트는 `src/ai/v2` 사용. `src/ai/v1`은 비교 기준선으로 고정(수정 금지).
+- 앱·스크립트는 `src/ai/v2` 사용. v1은 2026-11-26 삭제(v3의 기준선은 v2).
 - v2 핵심: `v2/read.ts`(사람식 상황 읽기: 패 분류·주도권·레이저 앞·무서운 카드·벳 크기) → `v2/postflop.ts`의 `planBet`/`planDefense`(계획 기반), EV 계산은 보조(비중 절반). 프리플랍은 깊이·`playablePct`(플레이어빌리티)·BB 가격 방어.
 - 화면 없는 AI 점검 도구:
-  - `npx tsx scripts/ai-match.ts --pairs 3000 --version` : v2 vs v1 (퇴보 확인)
-  - `npx tsx scripts/ai-postflop-report.ts --hands 3000 [--v 1]` : C벳·동크·C벳 폴드·리버 큰 벳 콜률
-  - `npx tsx scripts/ai-preflop-report.ts --stack 200 [--v 1]` : 상황별 프리플랍 참여율
+  - `npx tsx scripts/ai-postflop-report.ts --hands 3000` : C벳·동크·C벳 폴드·리버 큰 벳 콜률
+  - `npx tsx scripts/ai-preflop-report.ts --stack 200` : 상황별 프리플랍 참여율
   - `npx tsx scripts/ai-review.ts --hands 45 --stack 100 --seed N --tier low|high --out reports/x.md` : AI 생각이 붙은 핸드 기록 (`--tier low`=하수 테이블, `high`=고수 테이블, [릭:]·[고정:] 표시). 하수·고수를 따로 리뷰어(researcher)에게 판정시킴
   - `npx tsx scripts/ai-clarity-report.ts --hands 1500 [--v 1] [--examples 1]` : **명확한 자리 정답률·압박 자리 실행률 (마일스톤 6부터 최우선 기준)**
 - **방향(마일스톤 6~)**: 레벨 서열 맞추기는 목표에서 내림. 명확한 자리는 모두 정답(`v2/clarity.ts`), 실력 차이는 이름 붙은 구멍(릭) 개수(`config AI.leaksByLevel`), 강하게 쳐야 할 자리는 최소 비율(`AI.leanV2`). 실제로 쳐 보고 "틀렸다" 싶은 자리는 clarity에 추가.
 - 리뷰 루프: review 로그를 `researcher` 에이전트(Sonnet)에게 읽혀 "사람 같은가" 판정 → 규칙 수정 → 위 도구로 측정 → 커밋. 기록은 PROGRESS.md 'AI v2' 절.
 - 주의: Bash에서 `node -e "..."` 안에 백틱을 넣으면 명령으로 실행됨 → 문서 수정은 Edit 도구로.
 
+## 6-2. AI v3 (2026-11-26~, 개발 중) — 생각 모듈 + 레벨별 '보는 능력'
+- 구조: **인식 → 두뇌 → 선택**. 앱 연결 전이라 AI 전용 대결장에서만 돌린다.
+  - `v3/concepts.ts` 인식: 내 패·보드·승률·가격(팟 오즈·MDF·SPR·커밋)·포지션·주도권·라인 읽기·레인지/넛 우위·이전 계획
+  - `v3/line.ts` 라인 읽기: 좌석별 라인 요약(오픈→C벳→체크백…), 강함·블러프 가능성·캡. 쇼다운 기억(`rememberShowdown`)으로 상대별 블러프 비율 반영
+  - `v3/range.ts` 레인지: 공개 액션으로 1326콤보 갱신. 벳·레이즈는 '밸류 (1−β) + 블러프 β' 구성으로(β는 config `AI_V3.rangeBluffShare` × 라인·기억)
+  - `v3/strategy.ts` 두뇌: `gutBrain`(초급~중급, 패 등급+보이는 개념) / `rangeBrain`(상급+, 레인지 벳 빈도·사이즈·밸류:블러프 비율·MDF+승률 교차) / `evaluate`(EV)
+  - `v3/solver.ts` 고수(Lv9+) 리버 미니 솔버: 리버 시작 레인지를 22묶음으로, 체크/벳 2가지/레이즈 1번 트리를 CFR+로 (40ms 상한)
+  - `v3/preflop.ts` v2 프리플랍을 스타일 없이 표준으로 + 레벨 표. `v3/skill.ts` 레벨 → 보는 개념. 숫자는 전부 config `AI_V3`
+- 레벨 차이 = 일부러 틀리게가 아니라 **무엇을 보느냐**: 팟 오즈 Lv3+, 포지션·라인 기본 Lv4+, 벳 크기 의미·계획 기억 Lv5+, 라인 전체 Lv6+, 레인지 전략·상대 기억 Lv7+, 오버벳·리버 솔버 Lv9+. 승률 감각 오차·라인 반영 정도도 레벨별.
+- 플레이 스타일(TAG·루즈·스테이션 등)은 **나중에** `V3Profile.style`로 붙인다(지금은 표준 실력만).
+- 도구:
+  - `npx tsx scripts/ai-arena.ts --mode vs --pairs 6000 --levels 4,6,8,10` : v3 vs v2 헤즈업 듀플리케이트 (약 2분)
+  - `npx tsx scripts/ai-arena.ts --mode ladder --pairs 6000` : v3 레벨끼리 (약 4~10분)
+  - `npx tsx scripts/ai-arena.ts --mode log --hands 45 --levels 7,8,9,10,9,10 --seed N --out reports/x.md` : 생각 과정 붙은 6인 기록
+  - `npx tsx scripts/ai-diag.ts --level 10 --pairs 3000 [--worst --nworst 12] [--opp v3:5]` : 어디서 칩을 잃는지 + 최악 핸드의 생각 과정
+- 리뷰 루프: log를 `poker-reviewer` 에이전트(Sonnet, 노력 중간, `.claude/agents/poker-reviewer.md`)에게 고수·하수 테이블 따로 읽힘 → 모듈 수정 → vs·ladder로 측정. 헤즈업 100BB는 분산이 커서 6000쌍(1.2만 핸드)도 신뢰구간 ±15bb/100.
+
 ## 7. 다음 할 일 후보
 1. 피쉬 레벨 역전 원인 분석(끝까지 간다 Lv1 vs Lv3) — 습관·릭 조합별로 공통 상대 대결
 2. 난이도 체감 측정: "적당히 잘 치는 봇"을 내 자리에 앉혀 난이도별 우승률 측정 → 필요하면 '쉬움' 추가
 3. AI "사람 같았음" 평가(토너먼트 후 1~5점) — overview 3.7 ⑨
-4. 파일 구조 정리(보류 중): Game.tsx의 드라이버·모델 분리, Table.tsx 연출 분리, 빈 `src/history` 폴더 정리
+4. 파일 구조 정리(보류 중): Game.tsx의 드라이버·모델 분리, Table.tsx 연출 분리
 5. 복기 화면에 "AI 기준" 비교 표시(지금은 기록만)

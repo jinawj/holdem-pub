@@ -1,7 +1,6 @@
 // 포스트플랍 습관 점검: C벳률, 동크율, C벳에 폴드율, 리버 큰 벳에 콜률 (성향별, v1과 비교)
 // 실행: npx tsx scripts/ai-postflop-report.ts [--hands 800] [--stack 200] [--v 1]
 import * as V2 from '../src/ai/v2';
-import * as V1 from '../src/ai/v1';
 import { startHand } from '../src/engine/hand';
 import { seedToString, seedFromNumber } from '../src/engine/rng';
 import { makePlayerView } from '../src/engine/view';
@@ -10,7 +9,7 @@ import { arg, makeRng, table } from './lib';
 
 const hands = +arg('hands', '800');
 const stackBB = +arg('stack', '200');
-const AI: any = arg('v', '2') === '1' ? V1 : V2;
+const AI: any = V2;
 const R = makeRng(11);
 const BB = 200, N = 6;
 const ids = ['solver', 'reg', 'lag', 'nit', 'station', 'beginner'];

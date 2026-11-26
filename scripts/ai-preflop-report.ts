@@ -2,14 +2,13 @@
 // 실행: npx tsx scripts/ai-preflop-report.ts [--stack 200] [--v 1]  (v1과 비교하려면 --v 1)
 import rank169 from '../src/data/hand_rank_169.json';
 import * as V2 from '../src/ai/v2';
-import * as V1 from '../src/ai/v1';
 import { makePlayerView } from '../src/engine/view';
 import { buildSpot, SpotDef } from '../src/game/spot';
 import { arg, makeRng, table } from './lib';
 
 const stack = +arg('stack', '200');
 const useV1 = arg('v', '2') === '1';
-const AI = useV1 ? V1 : V2;
+const AI = V2;
 const R = makeRng(5);
 const SUITS = 'shdc';
 const handStr = (key: string) => key.length === 2 ? `${key[0]}s${key[1]}h` : key[2] === 's' ? `${key[0]}s${key[1]}s` : `${key[0]}s${key[1]}h`;

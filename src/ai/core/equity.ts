@@ -60,17 +60,17 @@ export function drawInfo(hole: Card[], board: Card[]): { flushDraw: boolean; oes
   let mask = 0;
   for (const c of all) mask |= 1 << (c >> 2);
   const m = ((mask << 1) | ((mask >> 12) & 1)) & 0x3fff;
-  let oesd = false, gutshot = false;
-  for (let lo = 0; lo <= 9; lo++) {
-    const win = (m >> lo) & 0x1f;
-    const bits = popcount(win);
-    if (bits === 5) return { flushDraw, oesd: false, gutshot: false }; // 이미 스트레이트
-    if (bits === 4) {
-      if ((win & 0x1e) === 0x1e || (win & 0x0f) === 0x0f) oesd = true;
-      else gutshot = true;
-    }
+  for (let lo = 0; lo <= 9; lo++) if (popcount((m >> lo) & 0x1f) === 5) return { flushDraw, oesd: false, gutshot: false }; // 이미 스트레이트
+  // 스트레이트를 완성하는 랭크 수로 판정: 2개 이상 = 양방향(더블 거트 포함), 1개 = 거트샷
+  //  (A-K-Q-J나 A-2-3-4처럼 한쪽이 막힌 4장은 거트샷과 같음)
+  let outs = 0;
+  for (let r = 0; r < 13; r++) {
+    if (mask & (1 << r)) continue;
+    const mm = mask | (1 << r);
+    const m2 = ((mm << 1) | ((mm >> 12) & 1)) & 0x3fff;
+    for (let lo = 0; lo <= 9; lo++) if (popcount((m2 >> lo) & 0x1f) === 5) { outs++; break; }
   }
-  return { flushDraw, oesd, gutshot };
+  return { flushDraw, oesd: outs >= 2, gutshot: outs === 1 };
 }
 
 function popcount(x: number) { let c = 0; while (x) { x &= x - 1; c++; } return c; }

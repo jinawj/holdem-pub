@@ -3,8 +3,6 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { decide, makeProfile, newMemory, PERSONAS } from '../src/ai/v2';
 import type { AiProfile, PersonaId } from '../src/ai/v2';
-// 이전 버전(기준선): 새 버전이 나빠지지 않았는지 비교용
-import { decide as decideV1, makeProfile as makeProfileV1 } from '../src/ai/v1';
 
 import { startHand } from '../src/engine/hand';
 import { seedToString, seedFromNumber } from '../src/engine/rng';
@@ -63,19 +61,7 @@ const R0 = makeRng(99);
 const mk = (id: PersonaId, lv: number) => () => makeProfile(id, lv, R0.rand);
 console.log(`=== 듀플리케이트 대결: 매치당 ${pairs}쌍(${pairs * 2}핸드), 헤즈업 ${stackBB}BB ===\n`);
 
-// 0) 버전 비교: 같은 성향·레벨의 새 AI(v2) vs 이전 AI(v1). 양수면 v2가 더 잘함
-{
-  const R1 = makeRng(77);
-  const vlist: [PersonaId, number][] = [['solver', 10], ['reg', 8], ['lag', 8], ['nit', 6], ['reg', 5], ['station', 3], ['beginner', 2], ['maniac', 4]];
-  const vrows: any[] = [];
-  vlist.forEach(([id, lv], i) => {
-    const s = summarize(duel(() => makeProfile(id, lv, R1.rand), () => makeProfileV1(id, lv, R1.rand) as any, 500 + i, decide, decideV1));
-    vrows.push([`${PERSONAS[id].name} Lv${lv}`, s.bb100, `[${s.lo.toFixed(1)}, ${s.hi.toFixed(1)}]`, s.sig.replace('우세', 'v2 우세').replace('열세', 'v2 열세')]);
-  });
-  console.log('0) 버전 비교 v2 vs v1 (같은 성향·레벨, v2 기준 bb/100)');
-  console.log(table(vrows, ['AI', 'bb/100', '신뢰구간', '판정']));
-  if (flag('version')) { console.log(`소요 ${(Date.now() - t0) / 1000}초`); process.exit(0); }
-}
+// v2 vs v3 비교는 scripts/ai-arena.ts
 
 // 1) 성향 서열: 기준 상대(레귤러 Lv6) 대비
 const baseline = mk('reg', 6);
