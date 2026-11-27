@@ -323,6 +323,9 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     // 블러프 몫이 아주 작으면 그만큼만 (경계 흐림 때문에 1% 몫이 60% 블러프가 되지 않게)
     // 블러프는 후보 상위 2×Bb 구간에서 순위가 높을수록 자주 (평균하면 정확히 Bb만큼) — 순위로 딱 잘라 100%/0%가 되지 않게 섞는다
     let pBluff = myStr < valueCut && Bb > 0 ? clamp(1 - bluffRank / (2 * Bb), 0, 1) : 0;
+    // 레이저 앞 블러프 동크는 강한 드로우(세미블러프)만, 빈도도 줄임: 순수 에어는 체크
+    //  (2026-11-28 진단: 실제로 들고 온 패가 가정한 내 레인지보다 약하면 맨 아래 에어가 '블러프 후보 1순위'로 100% 동크 → 숏스택 동크 22%)
+    if (p.facingAggressorFirst) pBluff = p.hand.strongDraw || p.hand.comboDraw ? pBluff * AI_V3.donkBluffDraw : 0;
     // 쇼다운 가치가 충분한 중간 패는 블러프로 쓰지 않음
     if (p.hand.showdown && classRank(p.hand.cls) >= 3) pBluff *= 0.3;
     // 리버: 쇼다운 가치가 조금이라도 있는 패(A하이·약한 페어)는 블러프 대신 체크
