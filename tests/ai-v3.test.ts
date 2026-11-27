@@ -14,6 +14,24 @@ function rng(seed: number) {
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
 }
 
+// 사용자 신고 재현: 신고에 저장된 화면 정보(PlayerView)를 그대로 v3에 넣어 행동 비율이 기대 범위인지 (tests/ai-spots/v3-reports.json)
+import reports from './ai-spots/v3-reports.json';
+describe('AI v3 신고 재현', () => {
+  for (const r of reports as any[]) {
+    it(`${r.id}: ${r.desc}`, () => {
+      const rand = rng(42);
+      const cnt: Record<string, number> = { fold: 0, check: 0, call: 0, raise: 0 };
+      const n = 60;
+      for (let t = 0; t < n; t++) cnt[V3.decide(r.view, r.profile, V3.newMemoryV3(), { rand, quick: true }).type]++;
+      for (const [k, [lo, hi]] of Object.entries(r.expect as Record<string, [number, number]>)) {
+        const v = cnt[k] / n;
+        expect(v, `${k} ${(v * 100).toFixed(0)}% (기대 ${lo * 100}~${hi * 100}%)`).toBeGreaterThanOrEqual(lo - 1e-9);
+        expect(v).toBeLessThanOrEqual(hi + 1e-9);
+      }
+    });
+  }
+});
+
 describe('AI v3', () => {
   it('6인 40핸드: 규칙 위반·칩 오류·금지 행동 0, 판단 95%가 200ms 미만', () => {
     const levels = [1, 3, 5, 7, 9, 10];

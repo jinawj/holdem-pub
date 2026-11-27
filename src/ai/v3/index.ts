@@ -157,7 +157,11 @@ export function decide(view: PlayerView, prof: V3Profile, mem: V3Memory, opts: D
   }
   // 최고 레벨(9+) 레인지 브레인: 판단과 반대인 드문 행동(95% 콜인데 5% 폴드 등)은 굴리지 않음 — 리뷰 상황 1차
   const tail = skill.level <= 3 && (brain === 'gut' || brain === 'pre') ? AI_V3.tailCutLow : brain === 'gut' || brain === 'solver' || (brain === 'pre' && skill.level <= 6) ? AI_V3.tailCutGut : brain === 'range' && skill.level >= 9 ? AI_V3.tailCutTop : brain === 'pre' && skill.level >= 9 ? AI_V3.tailCutPreTop : AI_V3.tailCut;
-  const t = probs.map((x) => (x < tail ? 0 : x));
+  // 드문 행동 제거는 '행동 종류별 합'으로 판단 (벳 크기를 두 가지로 섞을 때 16%가 10%+6%로 쪼개져 둘 다 잘리던 버그 — 상황별 점검 2026-11-28)
+  //  종류 합이 기준 이상이면 그 안의 크기는 남기고(아주 작은 4% 미만 크기만 정리), 종류 합이 기준 미만이면 그 종류 전체를 뺀다
+  const actMass: Record<string, number> = {};
+  options.forEach((o, i) => { actMass[o.act] = (actMass[o.act] ?? 0) + probs[i]; });
+  const t = probs.map((x, i) => (actMass[options[i].act] < tail || x < 0.04 ? 0 : x));
   if (t.some((x) => x > 0)) probs = norm(t);
   // 고르기
   let r = rand(), pick = probs.length - 1;

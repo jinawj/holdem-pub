@@ -222,6 +222,7 @@ export const CONTRA: Record<string, string> = {
   jamCallBelowPrice: '프리플랍 올인급 콜인데 승률이 가격보다 5%p+ 낮음',
   raiseFoldCheap: '내가 벳·레이즈한 뒤 가격 25% 이하·승률 충분한데 폴드',
   bluffNoBudget: "'벳 영역 밖'이라 해 놓고 벳(블러프 선택 표시 없음)",
+  highFreqCheckGood: '레인지 벳 60%+ 판단인데 승률 50%+ 패로 체크 (사용자 신고: K-A-9 KQ C벳 안 함)',
 };
 export function detect(c: St, view: any, d: any) {
   inc(c, 'decisions');
@@ -252,6 +253,8 @@ export function detect(c: St, view: any, d: any) {
     if (d.type === 'check' && /→ 밸류 영역/.test(thought)) inc(c, 'valueButCheck');
     if (d.type === 'raise' && /벳 영역 밖/.test(thought) && !/블러프로 선택/.test(thought)) inc(c, 'bluffNoBudget');
     if (d.type === 'check' && eq !== undefined && eq >= 0.85 && street === 'river') inc(c, 'riverStrongCheck');
+    const rb = /레인지 벳 (\d+)%/.exec(thought);
+    if (d.type === 'check' && rb && +rb[1] >= 60 && eq !== undefined && eq >= 0.5) inc(c, 'highFreqCheckGood');
     if (d.type === 'check' && eq !== undefined && eq >= 0.85 && street !== 'river') {
       const t = texture(view.board.slice(0, 3));
       if (t === 'wet' || t === 'mono') inc(c, 'wetSlowplay');

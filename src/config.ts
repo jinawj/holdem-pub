@@ -197,11 +197,13 @@ export const AI_V3 = {
   /** 헤즈업 테이블 SB 오픈 범위(%) */
   huOpen: 80,
   /** 레인지 브레인 블러프 비율 배수 (이론값 b/(P+2b) 대비). 리버 1 미만 = 사람들이 리버에서 덜 접는 것 반영 */
-  bluffMult: { flop: 1.6, turn: 1.49, river: 0.85 }, // 자동 튜닝 turn 1.35 → 1.49 // 상황 리뷰 2차: 플랍·턴 블러프 예산이 작아 AF 1.0 (1.3/1.1 → 1.6/1.35)
+  bluffMult: { flop: 1.2, turn: 1.49, river: 0.85 }, // 자동 튜닝 turn 1.35 → 1.49, 선형 벳 추가 후 재튜닝 flop 1.6 → 1.2 (턴 레인지 벳 0.5 → 0.625) // 상황 리뷰 2차: 플랍·턴 블러프 예산이 작아 AF 1.0 (1.3/1.1 → 1.6/1.35)
   /** 레인지 브레인 밸류 영역 경계 흐림 폭 (0.04 → 0.06) */
   valueEdge: 0.06,
   /** 레인지 브레인 벳 빈도 기본값: 주도권 있음(플랍 + 드라이/웻 보정, 턴 + 무서운 카드, 리버) / 체크로 넘어옴 */
-  rangeBet: { flop: 0.69, dry: 0.15, wet: -0.12, turn: 0.5, scare: 0.05, river: 0.4, checkedFlop: 0.29, checkedTurn: 0.52, checkedRiver: 0.36 }, // 자동 튜닝 (flop 0.55·turn 0.45·checkedFlop 0.38·checkedTurn 0.42에서)
+  rangeBet: { flop: 0.69, dry: 0.15, wet: -0.12, turn: 0.625, scare: 0.05, river: 0.4, checkedFlop: 0.29, checkedTurn: 0.52, checkedRiver: 0.36 }, // 자동 튜닝 (flop 0.55·turn 0.45·checkedFlop 0.38·checkedTurn 0.42에서)
+  /** 선형 벳: 레인지 벳 비율이 from에서 from+span으로 갈수록 블러프 몫의 share만큼을 얇은 밸류로 (사용자 신고: 고빈도 C벳 보드에서 중간 패 0%) */
+  merge: { from: 0.35, span: 0.3, share: 0.7 },
   /** 레인지 브레인 수비 폭 = MDF × (base + bluffy × 상대 블러프 가능성) */
   defend: { base: 0.47, bluffy: 1.1 }, // 자동 튜닝 0.62 → 0.47
   /** 헤즈업 프리플랍: BB 3벳(올인 아닌) 범위 상한(%), BB 전체 수비 상한(%) */

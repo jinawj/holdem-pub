@@ -302,7 +302,10 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     //  멀티웨이는 절반 — 단 모두 체크로 넘긴 찔러보기 자리는 헤즈업처럼
     const bm = AI_V3.bluffMult;
     const bf = clamp((frac0 / (1 + 2 * frac0)) * (S === 'flop' ? bm.flop : S === 'turn' ? bm.turn : bm.river) * (HU || othersAllChecked ? 1 : 0.5), 0, 0.45);
-    const V = B * (1 - bf), Bb = B * bf;
+    // 벳 빈도가 높으면(레인지 벳 35%+) 양극화가 아니라 '선형'에 가깝다: 블러프 몫 일부를 얇은 밸류(중간 패)로 옮김
+    //  (사용자 신고 2026-11-28: K-A-9 보드 레인지 벳 72%인데 KQ 세컨드 페어가 '영역 밖'으로 C벳 0% — AF가 낮던 원인)
+    const merge = clamp((B - AI_V3.merge.from) / AI_V3.merge.span, 0, 1);
+    const V = B * (1 - bf) + merge * B * bf * AI_V3.merge.share, Bb = B * bf * (1 - merge * AI_V3.merge.share);
     // 밸류: 만들어진 패 강도로 상위 V
     const rv = massAbove(R, str, myStr);
     // 경계 흐림 폭: 넓을수록 영역 경계 근처 패가 벳/체크를 섞음 (리뷰 상황 2차: 영역 밖 = 체크 100%가 기계적)
@@ -336,6 +339,9 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     if (ctx.numOpp >= 2 && !othersAllChecked && (rv > Math.max(0.1, V * 0.5) || myStr < 0.85) && p.eqRaw < 0.65) pValue *= 0.5;
     // 다들 체크로 약함을 보였으면 승률 55%+ 패는 얇게라도 밸류 (리뷰 상황 2차: 탑페어+드로우로 3스트리트 체크)
     if (othersAllChecked && p.eqRaw >= 0.55) pValue = Math.max(pValue, 0.65);
+    // 헤즈업: 상대가 지난 스트리트에 이어 또 체크(강한 패 빠진 라인) → 승률 55%+면 얇은 밸류 (같은 신고의 턴)
+    const vCheckedAgain = HU && !p.facingAggressorFirst && v.actionLog.some((a) => a.street === S && a.seat !== v.mySeat && a.type === 'check') && prevSt !== null && !v.actionLog.some((a) => a.street === prevSt && (a.type === 'bet' || a.type === 'raise'));
+    if (vCheckedAgain && p.eqRaw >= 0.55) pValue = Math.max(pValue, 0.7);
     // 실제로 강한 패(승률 70%+, 레인지 상위권)는 레인지 벳 비율과 상관없이 밸류를 친다 — 레이저 앞에서도 가끔 리드, 리버는 자주
     if (p.eqRaw >= 0.7 && myStr >= 0.8) pValue = Math.max(pValue, p.facingAggressorFirst ? (S === 'river' ? 0.6 : 0.3) : 0.75);
     // 남은 스택이 팟 2배 이하(SPR ≤ 2)인 강한 패: 함정·팟 조절할 여유가 없음 → 거의 항상 벳 (상황별 점검: SPR 1.1~1.3 밸류를 15~30% 체크)

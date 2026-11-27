@@ -1,0 +1,499 @@
+[
+ {
+  "id": "29e0a908",
+  "source": "사용자 신고 2026-11-28",
+  "comment": "여기서 씨벳을 안하는건 ㅈㄴ 이해가 안됨",
+  "desc": "10인 500BB, HJ 오픈·BB 콜, 플랍 Ks Ah 9h에 BB 체크, KQ 세컨드 페어 → C벳(작게) 위주",
+  "expect": {
+   "raise": [
+    0.45,
+    1
+   ]
+  },
+  "profile": {
+   "version": 3,
+   "level": 10
+  },
+  "view": {
+   "handId": "1",
+   "handNo": 1,
+   "mySeat": 6,
+   "holeCards": [
+    46,
+    41
+   ],
+   "board": [
+    47,
+    50,
+    30
+   ],
+   "street": "flop",
+   "numSeats": 10,
+   "buttonSeat": 9,
+   "sbSeat": 0,
+   "bbSeat": 1,
+   "seats": [
+    {
+     "seat": 0,
+     "stack": 99900,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 1,
+     "stack": 99400,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "active"
+    },
+    {
+     "seat": 2,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 3,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 4,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 5,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 6,
+     "stack": 99400,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "active"
+    },
+    {
+     "seat": 7,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 8,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 9,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    }
+   ],
+   "pots": [
+    {
+     "amount": 1300,
+     "eligibleSeats": [
+      1,
+      6
+     ]
+    }
+   ],
+   "potTotal": 1300,
+   "actionLog": [
+    {
+     "seat": 0,
+     "street": "preflop",
+     "type": "sb",
+     "amount": 100,
+     "to": 100,
+     "allIn": false
+    },
+    {
+     "seat": 1,
+     "street": "preflop",
+     "type": "bb",
+     "amount": 200,
+     "to": 200,
+     "allIn": false
+    },
+    {
+     "seat": 2,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 3,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 4,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 5,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 6,
+     "street": "preflop",
+     "type": "raise",
+     "amount": 600,
+     "to": 600,
+     "allIn": false
+    },
+    {
+     "seat": 7,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 8,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 9,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 0,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 100,
+     "allIn": false
+    },
+    {
+     "seat": 1,
+     "street": "preflop",
+     "type": "call",
+     "amount": 400,
+     "to": 600,
+     "allIn": false
+    },
+    {
+     "seat": 1,
+     "street": "flop",
+     "type": "check",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    }
+   ],
+   "legal": {
+    "canCheck": true,
+    "callAmount": 0,
+    "canRaise": true,
+    "minRaiseTo": 200,
+    "maxRaiseTo": 99400,
+    "committed": 0,
+    "stack": 99400,
+    "currentBet": 0
+   },
+   "level": {
+    "level": 1,
+    "sb": 100,
+    "bb": 200,
+    "ante": 0
+   },
+   "playersLeft": 10
+  }
+ },
+ {
+  "id": "5c259dcd",
+  "source": "사용자 신고 2026-11-28",
+  "comment": "턴체크에도 웻보드에서 벨류를 안받는다고?",
+  "desc": "같은 핸드 턴 2d, 플랍 체크-체크 후 BB 또 체크 → 세컨드 페어 얇은 밸류 벳 위주",
+  "expect": {
+   "raise": [
+    0.5,
+    1
+   ]
+  },
+  "profile": {
+   "version": 3,
+   "level": 10
+  },
+  "view": {
+   "handId": "1",
+   "handNo": 1,
+   "mySeat": 6,
+   "holeCards": [
+    46,
+    41
+   ],
+   "board": [
+    47,
+    50,
+    30,
+    1
+   ],
+   "street": "turn",
+   "numSeats": 10,
+   "buttonSeat": 9,
+   "sbSeat": 0,
+   "bbSeat": 1,
+   "seats": [
+    {
+     "seat": 0,
+     "stack": 99900,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 1,
+     "stack": 99400,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "active"
+    },
+    {
+     "seat": 2,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 3,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 4,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 5,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 6,
+     "stack": 99400,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "active"
+    },
+    {
+     "seat": 7,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 8,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    },
+    {
+     "seat": 9,
+     "stack": 100000,
+     "committed": 0,
+     "startStack": 100000,
+     "status": "folded"
+    }
+   ],
+   "pots": [
+    {
+     "amount": 1300,
+     "eligibleSeats": [
+      1,
+      6
+     ]
+    }
+   ],
+   "potTotal": 1300,
+   "actionLog": [
+    {
+     "seat": 0,
+     "street": "preflop",
+     "type": "sb",
+     "amount": 100,
+     "to": 100,
+     "allIn": false
+    },
+    {
+     "seat": 1,
+     "street": "preflop",
+     "type": "bb",
+     "amount": 200,
+     "to": 200,
+     "allIn": false
+    },
+    {
+     "seat": 2,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 3,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 4,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 5,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 6,
+     "street": "preflop",
+     "type": "raise",
+     "amount": 600,
+     "to": 600,
+     "allIn": false
+    },
+    {
+     "seat": 7,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 8,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 9,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 0,
+     "street": "preflop",
+     "type": "fold",
+     "amount": 0,
+     "to": 100,
+     "allIn": false
+    },
+    {
+     "seat": 1,
+     "street": "preflop",
+     "type": "call",
+     "amount": 400,
+     "to": 600,
+     "allIn": false
+    },
+    {
+     "seat": 1,
+     "street": "flop",
+     "type": "check",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 6,
+     "street": "flop",
+     "type": "check",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    },
+    {
+     "seat": 1,
+     "street": "turn",
+     "type": "check",
+     "amount": 0,
+     "to": 0,
+     "allIn": false
+    }
+   ],
+   "legal": {
+    "canCheck": true,
+    "callAmount": 0,
+    "canRaise": true,
+    "minRaiseTo": 200,
+    "maxRaiseTo": 99400,
+    "committed": 0,
+    "stack": 99400,
+    "currentBet": 0
+   },
+   "level": {
+    "level": 1,
+    "sb": 100,
+    "bb": 200,
+    "ante": 0
+   },
+   "playersLeft": 10
+  }
+ }
+]
