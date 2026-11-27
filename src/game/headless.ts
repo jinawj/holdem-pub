@@ -101,7 +101,7 @@ export function runHand(h: HandState, actor: Actor, rs: RunStats | null, players
   return h;
 }
 
-export interface TourneyOpts { quick: boolean; rand: () => number; handsPerLevel: number; recallEnabled?: boolean; maxHands?: number; seedFn: () => string; randInt: (n: number) => number }
+export interface TourneyOpts { quick: boolean; rand: () => number; handsPerLevel: number; maxHands?: number; seedFn: () => string; randInt: (n: number) => number }
 
 /** AI끼리 토너먼트 하나 */
 export function runTournament(t: TournamentState, profiles: AiProfile[], rs: RunStats, o: TourneyOpts): { hands: number } {
@@ -112,8 +112,8 @@ export function runTournament(t: TournamentState, profiles: AiProfile[], rs: Run
     if (hands > 0 && hands % o.handsPerLevel === 0) t.pendingLevelUp++;
     const h = startNextHand(t, o.seedFn(), o.randInt);
     const left = aliveSeats(t).length;
-    runHand(h, (hs, seat) => decide(makePlayerView(hs, seat, left), profiles[seat], mems[seat], { rand: o.rand, quick: o.quick, speedMult: 1, recallEnabled: o.recallEnabled }), rs, left, (s) => profiles[s].personaId);
-    for (const p of h.players) mems[p.seat] = updateMemory(mems[p.seat], profiles[p.seat], summaryFor(h, p.seat), o.recallEnabled !== false);
+    runHand(h, (hs, seat) => decide(makePlayerView(hs, seat, left), profiles[seat], mems[seat], { rand: o.rand, quick: o.quick, speedMult: 1 }), rs, left, (s) => profiles[s].personaId);
+    for (const p of h.players) mems[p.seat] = updateMemory(mems[p.seat], summaryFor(h, p.seat));
     finishHand(t);
     if (totalTableChips(t) !== total0) rs.chipErrors++;
     hands++;

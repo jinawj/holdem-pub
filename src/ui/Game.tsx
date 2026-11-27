@@ -12,6 +12,8 @@ import { SeatModel, Table, TableModel } from './Table';
 
 export function buildTableModel(g: GameSave, thinkingSeat: number | null): TableModel {
   const h = g.t.hand;
+  // 올인이 걸린 쇼다운은 동시 공개. 그 외 쇼다운만 순서대로 공개·muck
+  const allInSD = !!h && (h.allInRunout || h.players.some((p) => p.allIn && !p.folded));
   const seats: SeatModel[] = g.t.seats.map((ts) => {
     const hp = h?.players.find((p) => p.seat === ts.seat);
     const done = h?.street === 'done';
@@ -35,7 +37,14 @@ export function buildTableModel(g: GameSave, thinkingSeat: number | null): Table
         if (a.seat === ts.seat && !['ante', 'sb', 'bb'].includes(a.type)) { actIdx = i; actType = a.allIn ? 'allin' : a.type; break; }
       }
     }
+    let reveal: SeatModel['reveal'];
+    if (done && h?.result && hp && !hp.folded) {
+      const r = h.result;
+      if (r.uncontested) reveal = { step: 0, muck: true }; // 모두 폴드 → 이긴 사람은 안 깜
+      else if (!allInSD) reveal = { step: r.showOrder.indexOf(ts.seat), muck: !r.shown.includes(ts.seat) };
+    }
     return {
+      reveal,
       seat: ts.seat, name: ts.name, color: g.colors[ts.seat], isMe: ts.isHuman,
       stack: hp ? hp.stack : ts.stack, committed: hp ? hp.committed : 0,
       folded: !!hp?.folded, allIn: !!hp?.allIn, out: ts.out && !hp, inHand: !!hp,
@@ -45,7 +54,7 @@ export function buildTableModel(g: GameSave, thinkingSeat: number | null): Table
       thinking: thinkingSeat === ts.seat,
       winner: !!(done && h?.result && (h.result.won[ts.seat] ?? 0) > 0),
       label, actIdx, actType,
-      allInShow: revealed && !!h && !h.result?.uncontested && (h.allInRunout || h.players.some((p) => p.allIn && !p.folded)),
+      allInShow: revealed && !!h && !h.result?.uncontested && allInSD,
       won: done && h?.result ? h.result.won[ts.seat] ?? 0 : 0,
       lost: !!(done && h?.result && !h.result.uncontested && hp && !hp.folded && !((h.result.won[ts.seat] ?? 0) > 0)),
       handName: revealed && h?.result?.scores[ts.seat] !== undefined ? describeHand(h.result.scores[ts.seat]) : undefined,
@@ -150,7 +159,7 @@ export function Game() {
       const view = viewFor(game, HUMAN_SEAT);
       const idx = h.actions.length;
       const bp = baselineProfile(game.settings.aiVersion ?? 'v2');
-      askAi(view, bp, newMemoryFor(bp), 0, false).then((d) => useStore.getState().setBaseline({ actionIndex: idx, seat: HUMAN_SEAT, memo: d.memo })).catch(() => {});
+      askAi(view, bp, newMemoryFor(bp), 0).then((d) => useStore.getState().setBaseline({ actionIndex: idx, seat: HUMAN_SEAT, memo: d.memo })).catch(() => {});
       return;
     }
     const seat = h.toAct!;
@@ -160,7 +169,7 @@ export function Game() {
     const view = viewFor(game, seat);
     const t0 = performance.now();
     const ai = game.ai[seat];
-    askAi(view, ai.profile, ai.memory, aiSpeedMult(game), game.settings.recall).then((d) => {
+    askAi(view, ai.profile, ai.memory, aiSpeedMult(game)).then((d) => {
       if (cancelled) return;
       if (game.debug?.aiAllIn) {
         const L = legalActions(h);

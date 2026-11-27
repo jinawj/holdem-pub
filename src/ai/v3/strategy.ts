@@ -278,7 +278,8 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
   if (!ctx.facingBet) {
     const S = ctx.street;
     let B: number, role: string;
-    if (p.facingAggressorFirst) { B = 0.05 + Math.max(0, na) * 2 + Math.max(0, ra); role = '레이저 앞(동크 자리)'; }
+    // 레이저 앞: 레인지 우위가 없어도 최소한의 리드(동크)를 섞는다 — 체크 100%면 상대 C벳이 공짜 (리뷰 상황 1차)
+    if (p.facingAggressorFirst) { B = AI_V3.donkBase + Math.max(0, na) * 2 + Math.max(0, ra); role = '레이저 앞(동크 자리)'; }
     else if (p.initiative) { B = S === 'flop' ? 0.55 + (p.dryBoard ? 0.15 : p.wetBoard ? -0.12 : 0) : S === 'turn' ? 0.45 + (p.scareCard ? 0.05 : 0) : 0.4; role = '주도권 있음'; }
     else { B = S === 'flop' ? 0.38 : S === 'turn' ? 0.42 : 0.36; role = '체크로 넘어옴'; }
     B += clamp(ra * 0.8 + na * 0.8, -0.2, 0.15);
@@ -287,18 +288,25 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     // 멀티웨이에서 지난 스트리트까지 모두 체크로 넘어오고 내가 마지막(IP): 아무도 강하지 않음 → 찔러보기(스탭)
     const prevSt = S === 'turn' ? 'flop' : S === 'river' ? 'turn' : null;
     const allCheckedPrev = prevSt !== null && !v.actionLog.some((a) => a.street === prevSt && (a.type === 'bet' || a.type === 'raise'));
-    const stab = ctx.ip && !p.initiative && allCheckedPrev && ctx.numOpp >= 2 && v.actionLog.some((a) => a.street === S && a.type === 'check');
-    if (stab) B = Math.max(B, 0.25);
+    //  (주도권이 있어도 지난 스트리트를 체크로 넘겼으면 같음 — 리뷰 상황 2차: 레이저가 플랍 체크 후 턴·리버도 전부 체크)
+    const stab = ctx.ip && allCheckedPrev && ctx.numOpp >= 2 && v.actionLog.some((a) => a.street === S && a.type === 'check');
+    // 이번 스트리트도 다른 사람이 전부 체크: 다들 약함 → 인포지션 찔러보기를 더 (리뷰 상황 1차: 4명 팟 전원 체크에 3스트리트 체크)
+    const othersAllChecked = stab && ctx.oppSeats.every((s) => v.actionLog.some((a) => a.street === S && a.seat === s && a.type === 'check'));
+    if (stab) B = Math.max(B, othersAllChecked ? AI_V3.stabAllChecked : 0.25);
+    // 레이저 앞 리드 하한은 보정(레인지 불리·OOP)이 끝난 뒤에 건다 (리뷰 상황 2차: 하한 9%가 곱셈에 깎여 3~4%로)
+    if (p.facingAggressorFirst && HU) B = Math.max(B, AI_V3.donkBase);
     B = clamp(B, 0.03, S === 'flop' ? 0.72 : S === 'turn' ? 0.6 : 0.55);
     const sz = chooseSize(ctx, p, skill);
     const frac0 = sz.frac;
     // 블러프 비율 = b/(P+2b). 플랍·턴은 드로우가 섞여 조금 더, 리버는 사람들이 잘 안 접어서 조금 덜 (config)
+    //  멀티웨이는 절반 — 단 모두 체크로 넘긴 찔러보기 자리는 헤즈업처럼
     const bm = AI_V3.bluffMult;
-    const bf = clamp((frac0 / (1 + 2 * frac0)) * (S === 'flop' ? bm.flop : S === 'turn' ? bm.turn : bm.river) * (HU ? 1 : 0.5), 0, 0.45);
+    const bf = clamp((frac0 / (1 + 2 * frac0)) * (S === 'flop' ? bm.flop : S === 'turn' ? bm.turn : bm.river) * (HU || othersAllChecked ? 1 : 0.5), 0, 0.45);
     const V = B * (1 - bf), Bb = B * bf;
     // 밸류: 만들어진 패 강도로 상위 V
     const rv = massAbove(R, str, myStr);
-    let pValue = sig((V - rv) / 0.04);
+    // 경계 흐림 폭: 넓을수록 영역 경계 근처 패가 벳/체크를 섞음 (리뷰 상황 2차: 영역 밖 = 체크 100%가 기계적)
+    let pValue = sig((V - rv) / AI_V3.valueEdge);
     // 블러프: 밸류 아닌 패 중 블러프 점수 상위 Bb (드로우·블로커·쇼다운 가치 없음)
     const bs = bluffScores(board, str, nutSuit);
     const valueCut = valueThreshold(R, str, V);
@@ -325,7 +333,9 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     // 3명 이상 팟의 블러프는 크게 줄이고, 리버엔 블로커 없으면 안 함
     if (ctx.numOpp >= 2 && !stab) pBluff *= S === 'river' && !p.hand.blocker ? 0 : 0.3;
     // 3명 이상 팟: 얇은 밸류(밸류 영역 아래쪽)는 체크 쪽으로 — 여러 명이 콜하면 더 좋은 패가 있기 쉬움
-    if (ctx.numOpp >= 2 && (rv > Math.max(0.1, V * 0.5) || myStr < 0.85) && p.eqRaw < 0.65) pValue *= 0.5;
+    if (ctx.numOpp >= 2 && !othersAllChecked && (rv > Math.max(0.1, V * 0.5) || myStr < 0.85) && p.eqRaw < 0.65) pValue *= 0.5;
+    // 다들 체크로 약함을 보였으면 승률 55%+ 패는 얇게라도 밸류 (리뷰 상황 2차: 탑페어+드로우로 3스트리트 체크)
+    if (othersAllChecked && p.eqRaw >= 0.55) pValue = Math.max(pValue, 0.65);
     // 실제로 강한 패(승률 70%+, 레인지 상위권)는 레인지 벳 비율과 상관없이 밸류를 친다 — 레이저 앞에서도 가끔 리드, 리버는 자주
     if (p.eqRaw >= 0.7 && myStr >= 0.8) pValue = Math.max(pValue, p.facingAggressorFirst ? (S === 'river' ? 0.6 : 0.3) : 0.75);
     const pBet = clamp(Math.max(pValue, pBluff), 0, 0.97);
@@ -363,7 +373,9 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
   defend = clamp(defend, 0.1, 0.95);
   const rr = massAbove(R, eff, eff[me]);
   const pTheory = sig((defend - rr) / 0.03);
-  const margin = p.eq - ctx.potOdds;
+  // 리버 전 콜은 승률을 다 실현하지 못한다(다음 스트리트 벳에 접게 되는 몫 = 리버스 임플라이드). 아웃오브포지션일수록 더
+  const realize = ctx.street === 'river' ? 1 : ctx.ip ? AI_V3.callRealize.ip : AI_V3.callRealize.oop;
+  const margin = p.eq * realize - ctx.potOdds;
   const pRead = sig((margin - (draw ? -0.03 : 0.01)) / 0.035);
   // 샌드위치(앞에서 벳, 뒤에서 레이즈) 또는 이번 스트리트 레이즈 2번 이상: 레인지가 아주 강함
   const aggrOthers = v.actionLog.filter((a) => a.street === ctx.street && a.seat !== v.mySeat && (a.type === 'bet' || a.type === 'raise')).length;
@@ -374,6 +386,8 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
   let why = `MDF ${(p.mdf * 100).toFixed(0)}% × 라인(블러프 가능성 ${(p.bluffy * 100).toFixed(0)}%) → 레인지 ${(defend * 100).toFixed(0)}% 수비, 내 패 상위 ${(rr * 100).toFixed(0)}% · 라인 상대 승률 ${(p.eq * 100).toFixed(0)}% vs 필요 ${(ctx.potOdds * 100).toFixed(0)}%${bigDecision ? ' (큰 결정: 읽기 위주)' : ''}`;
   // 승률이 가격보다 확실히 높으면(작은 벳에 오버카드 등) 랭크와 상관없이 계속
   if (margin >= 0.08 && !vsRaise && !sandwich) pCont = Math.max(pCont, 0.95);
+  // 승률(실현 반영)이 가격 이상이면 '레인지 수비 폭 밖'이라도 대부분은 계속 (리뷰 상황 2차: 25% vs 필요 21%에 폴드)
+  else if (margin >= 0 && !vsRaise && !sandwich) { pCont = Math.max(pCont, AI_V3.contFloorAtPrice); }
   if (sandwich && myStr < 0.9) { pCont *= 0.45; why += ' · 벳과 레이즈 사이에 끼임: 넛급 아니면 신중'; }
   if (draw && ctx.spr > 3 && margin >= -0.08 && !vsRaise) { pCont = Math.max(pCont, 0.8); why += ' · 드로우 + 깊은 스택(임플라이드)'; }
   // 레이즈: 밸류는 상대 계속 범위보다 앞설 때만, 블러프 레이즈는 강한 드로우·블로커
@@ -382,7 +396,7 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
   // 체크레이즈: 내가 이번 스트리트에 체크했고 헤즈업이면 레이즈 영역을 넓힘 (OOP가 체크-콜만 하면 읽히기 쉬움)
   const iChecked = v.actionLog.some((x) => x.street === ctx.street && x.seat === v.mySeat && x.type === 'check');
   const xr = iChecked && HU && !river;
-  const vr = defend * (river ? 0.12 : p.wetBoard ? 0.24 : 0.18) * (xr ? 1.6 : 1);
+  const vr = defend * (river ? 0.12 : p.wetBoard ? 0.24 : 0.18) * (xr ? AI_V3.xrMult : 1);
   let pRaise = sig((vr - rvStr) / 0.02);
   const aheadOfCallers = ctx.numOpp === 1 ? eqVsTop(p.eqRes, 0.4) : p.eq * 0.85;
   if (aheadOfCallers < (xr ? 0.5 : 0.55)) pRaise *= 0.15;

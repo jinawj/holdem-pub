@@ -30,6 +30,8 @@ export interface SeatModel {
   won?: number;
   /** 쇼다운에서 진 패 (흐리게) */
   lost?: boolean;
+  /** 핸드 종료 시 내 차례에 할 일: step번째(0부터)에 패를 공개하거나 muck */
+  reveal?: { step: number; muck: boolean };
 }
 
 export interface TableModel {
@@ -89,7 +91,7 @@ export function Table({ m }: { m: TableModel }) {
   const prev = useRef<{ street: string; handNo: number; committed: Record<number, number>; done: boolean; boardLen: number }>({ street: m.street, handNo: m.handNo, committed: {}, done: false, boardLen: m.board.length });
   const boardDelay = useRef<Record<string, BoardAnim>>({});
   const revealEnd = useRef(0);
-  const winRef = useRef<{ hand: number; delay: number }>({ hand: -1, delay: 0 });
+  const winRef = useRef<{ hand: number; delay: number; revealAt: number }>({ hand: -1, delay: 0, revealAt: 0 });
   const T = timings(m.animMs);
 
   // 보드 카드 공개 연출
@@ -117,11 +119,13 @@ export function Table({ m }: { m: TableModel }) {
     }
     if (added) revealEnd.current = Date.now() + end;
   }
-  // 승자 공개 시각: (런아웃이 끝난 뒤) 쇼다운 패를 잠깐 보여 주고 → 승자 표시·칩 이동
+  // 승자 공개 시각: (런아웃이 끝난 뒤) 순서대로 공개·muck → 잠깐 보여 주고 → 승자 표시·칩 이동
   if (m.winners && winRef.current.hand !== m.handNo) {
     const collectWait = m.collected && Object.keys(m.collected).length ? T.collectDelay + T.chipFly : 0;
     const revealWait = Math.max(collectWait, revealEnd.current - Date.now());
-    winRef.current = { hand: m.handNo, delay: m.animMs > 0 ? revealWait + (m.uncontested ? T.uncontestedPause : T.showdownPause) : 0 };
+    const lastStep = Math.max(-1, ...m.seats.map((s) => s.reveal?.step ?? -1));
+    const pause = m.uncontested ? T.uncontestedPause : lastStep >= 0 ? lastStep * T.showStep + T.showTail : T.showdownPause;
+    winRef.current = { hand: m.handNo, revealAt: revealWait, delay: m.animMs > 0 ? revealWait + pause : 0 };
   }
   const winDelay = m.winners && winRef.current.hand === m.handNo ? winRef.current.delay : 0;
 
@@ -226,7 +230,8 @@ export function Table({ m }: { m: TableModel }) {
                 <ChipStack amount={s.committed} size={betChip} perCol={6} cols={3} />
               </div>
             )}
-            <Seat s={s} p={p} g={g} handNo={m.handNo} anim={m.animMs > 0} isButton={s.seat === m.button} deal={m.dealAnim && m.animMs > 0 ? { order: dealOrder, step: dealStep(m) } : null} />
+            <Seat s={s} p={p} g={g} handNo={m.handNo} anim={m.animMs > 0} isButton={s.seat === m.button} deal={m.dealAnim && m.animMs > 0 ? { order: dealOrder, step: dealStep(m) } : null}
+              revealDelay={s.reveal && m.animMs > 0 && winRef.current.hand === m.handNo ? winRef.current.revealAt + s.reveal.step * T.showStep : undefined} />
           </div>
         );
       })}
@@ -268,7 +273,9 @@ function timings(animMs: number) {
     betIn: Math.round(Math.max(420, a * 1.35)), // 베팅 칩이 앞으로 나오는 시간
     chipFly: Math.round(Math.max(500, a * 1.6)), // 칩이 팟·승자에게 가는 시간
     collectDelay: Math.round(Math.max(450, a * 1.2)), // 마지막 액션 칩을 보여 준 뒤 팟으로 모으기까지
-    showdownPause: Math.round(Math.max(1100, a * 2.6)), // 쇼다운 패를 보여 주는 시간
+    showdownPause: Math.round(Math.max(1100, a * 2.6)), // 올인 쇼다운(동시 공개) 패를 보여 주는 시간
+    showStep: Math.round(Math.max(750, a * 1.8)), // 순서 오픈: 한 사람 공개·muck에서 다음 사람까지
+    showTail: Math.round(Math.max(900, a * 1.9)), // 마지막 사람 공개·muck 뒤 승자 표시까지
     uncontestedPause: Math.round(Math.max(350, a * 0.8)),
     afterWin: Math.round(Math.max(900, a * 2.2)), // 칩을 먹은 뒤 다음 핸드까지
   };
@@ -283,7 +290,7 @@ function dealOrderOf(m: TableModel): number[] {
 const dealStep = (m: TableModel) => Math.round(Math.max(55, m.animMs * 0.17));
 const dealDuration = (m: TableModel) => dealStep(m) * 2 * dealOrderOf(m).length + 450;
 
-function Seat({ s, p, g, handNo, deal, anim, isButton }: { s: SeatModel; p: Pt; g: Geometry; handNo: number; deal: { order: number[]; step: number } | null; anim: boolean; isButton: boolean }) {
+function Seat({ s, p, g, handNo, deal, anim, isButton, revealDelay }: { s: SeatModel; p: Pt; g: Geometry; handNo: number; deal: { order: number[]; step: number } | null; anim: boolean; isButton: boolean; revealDelay?: number }) {
   // 딜러 버튼: 테이블 위에 따로 두지 않고 버튼 자리 이름표 모서리에 붙임 → 다른 요소와 겹치지 않음
   const dBadge = isButton ? <span className="d-badge" aria-label="딜러 버튼">D</span> : null;
   if (s.out) {
@@ -297,7 +304,13 @@ function Seat({ s, p, g, handNo, deal, anim, isButton }: { s: SeatModel; p: Pt; 
   const actKey = `${handNo}-${s.actIdx ?? -1}`;
   const actClass = anim && s.actType ? ' anim-' + s.actType : '';
   // 상대가 폴드하면 카드가 가운데로 버려짐 (내 카드는 흐리게 남김)
-  const muck = s.folded && !s.isMe && !s.faceUp;
+  // 핸드 종료 때 깔 필요가 없는 패(쇼다운에서 진 패, 모두 폴드시켜 이긴 패)는 내 것도 가운데로 muck
+  const endMuck = !!s.reveal?.muck;
+  const muck = endMuck || (s.folded && !s.isMe && !s.faceUp);
+  // 순서 오픈: 내 차례(revealDelay)가 되면 뒷면 → 앞면 (내 카드는 이미 앞면이라 살짝 들어 올림)
+  const showing = !!s.reveal && !endMuck && revealDelay !== undefined;
+  const muckStyle = muck ? { ['--dx' as string]: dx + 'px', ['--dy' as string]: dy + 'px' } : undefined;
+  const seatStyle: CSSProperties = { left: p.x, top: p.y, ...(revealDelay !== undefined ? { ['--sd-delay' as string]: revealDelay + 'ms' } : {}) };
   // 화면 아래쪽 자리는 말풍선·족보 이름을 이름표 아래가 아니라 옆(테이블 중앙 쪽)에 → 잘리지 않게
   // 말풍선 위치: 이름표 아래에 공간이 있으면 그냥 아래(기본).
   // 공간이 없을 때만 — 내 자리: 이름표 왼쪽 / 다른 자리: 자기 카드 뒷면 위에 겹쳐서
@@ -306,19 +319,27 @@ function Seat({ s, p, g, handNo, deal, anim, isButton }: { s: SeatModel; p: Pt; 
   const roomBelow = p.y + seatH / 2 + 24 <= g.h - 2;
   const sideFix = roomBelow ? '' : s.isMe ? ' tag-left' : ' tag-over';
   return (
-    <div className={'seat' + sideFix + (s.isActor ? ' actor' : '') + (s.folded ? ' folded' : '') + (s.winner ? ' winner' : '') + (s.lost ? ' lost' : '') + (s.isMe ? ' me' : '') + (s.allInShow ? ' allin-show' : '')} style={{ left: p.x, top: p.y }}>
+    <div className={'seat' + sideFix + (s.isActor ? ' actor' : '') + (s.folded ? ' folded' : '') + (s.winner ? ' winner' : '') + (s.lost ? ' lost' : '') + (s.isMe ? ' me' : '') + (s.allInShow ? ' allin-show' : '')} style={seatStyle}>
       {s.winner && s.won ? (
         // 화면 가장자리 자리는 배너가 잘리지 않게 안쪽으로 붙임
         <div className={'win-banner' + (p.x < g.w * 0.3 ? ' edge-l' : p.x > g.w * 0.7 ? ' edge-r' : '')}><b>WIN</b> +{fmt(s.won)}</div>
       ) : null}
       {s.cards && (
-        <div className={'hole' + (muck ? (anim ? ' mucked' : ' gone') : '')} key={handNo} style={muck ? { ['--dx' as string]: dx + 'px', ['--dy' as string]: dy + 'px' } : undefined}>
+        <div className={'hole' + (muck ? (anim ? ' mucked' : ' gone') : '')} key={handNo} style={muckStyle}>
           {s.cards.map((c, i) => {
             const style: CSSProperties | undefined = deal && idx >= 0
               ? { ['--dx' as string]: dx + 'px', ['--dy' as string]: dy + 'px', animationDelay: (i * deal.order.length + idx) * deal.step + 'ms' }
               : undefined;
+            if (showing && !s.isMe) {
+              return (
+                <span key={'sd' + i} className="sd-flip">
+                  <span className="sd-front"><CardView c={c} /></span>
+                  <span className="sd-back"><CardView hidden /></span>
+                </span>
+              );
+            }
             return (
-              <span key={i} className={style ? 'dealt' : ''} style={style}>
+              <span key={i} className={style ? 'dealt' : showing ? 'sd-lift' : ''} style={style}>
                 <CardView c={c} hidden={!s.faceUp} mine={s.isMe} dim={s.folded} />
               </span>
             );
@@ -339,6 +360,8 @@ function Seat({ s, p, g, handNo, deal, anim, isButton }: { s: SeatModel; p: Pt; 
         )}
       </div>
       {s.label && <div key={'lb' + actKey} className={'act-label' + (anim ? ' pop' : '') + (s.actType ? ' t-' + s.actType : '')}>{s.label}</div>}
+      {/* 쇼다운에서 패를 안 깔 때: 카드가 버려지는 순간 'muck' 말풍선 */}
+      {endMuck && s.folded === false && !s.winner && <div key={'mk' + handNo} className={'act-label muck-label' + (anim ? ' pop' : '')}>muck</div>}
       {s.handName && <div className="hand-name">{s.handName}</div>}
     </div>
   );

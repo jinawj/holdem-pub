@@ -41,7 +41,6 @@ export function SettingsScreen() {
       <Seg label="난이도" opts={['normal', 'hard', 'veryhard'] as Difficulty[]} value={s.difficulty} onChange={(v) => up({ difficulty: v })} fmtOpt={(v) => DIFFICULTY[v].name} />
       <Seg label="AI 버전 (V3는 새 AI 시험판)" opts={AI_VERSIONS} value={(s.aiVersion ?? 'v2') as AiVersion} onChange={(v) => up({ aiVersion: v })} fmtOpt={(v) => AI_VERSION_LABEL[v]} />
       <Seg label="AI 속도" opts={['fast', 'normal', 'real'] as AiSpeed[]} value={s.aiSpeed} onChange={(v) => up({ aiSpeed: v })} fmtOpt={(v) => ({ fast: '빠름', normal: '보통', real: '리얼' })[v]} />
-      <Seg label="AI 기억 반응 (쇼다운에서 본 장면에 흔들림)" opts={['on', 'off']} value={s.recall ? 'on' : 'off'} onChange={(v) => up({ recall: v === 'on' })} fmtOpt={(v) => (v === 'on' ? '켜기' : '끄기')} />
       <button className="big primary" onClick={() => st.newGame(s)}>{st.hasAutosave ? '새 토너먼트 시작' : '토너먼트 시작'}</button>
       <button className="big" onClick={async () => { try { st.importFile(await pickJsonFile()); } catch (e) { st.showToast('불러오기 실패: ' + String((e as Error).message)); } }}>파일 불러오기</button>
       {st.archive.length > 0 && (

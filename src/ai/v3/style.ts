@@ -7,16 +7,24 @@ import type { Ctx } from './context';
 import type { Intent, Option } from './types';
 
 export type StyleId = keyof typeof AI_V3.styles;
-export interface Axes { tight: number; aggro: number; bluff: number; sticky: number; trap: number; limp: number }
+/**
+ * 축 (−1..1, 0 = 표준)
+ *  tight 참여 범위 · aggro 공격성 · bluff 블러프 빈도 · sticky 끝까지 따라감 · trap 강한 패 숨기기 · limp 림프 버릇
+ *  고수 성격 축 (무엇을 더 중시하나 — 2026-11-27 상황별 리뷰):
+ *  xr     레인지 균형: 체크한 뒤 벳을 받으면 강한 패·드로우를 체크레이즈로 (체크 레인지가 약해 보이지 않게)
+ *  barrel 폴드 에퀴티: 주도권이 있는 턴·리버에 블러프 배럴을 이어감, 오픈에 3벳(블러프) 더
+ *  potCtl 쇼다운 가치: 중간 패(승률 40~70%)는 벳 대신 체크로 팟을 작게, 큰 팟(레이즈·스택 걸림)에서 원페어급은 덜 버팀
+ */
+export interface Axes { tight: number; aggro: number; bluff: number; sticky: number; trap: number; limp: number; xr: number; barrel: number; potCtl: number }
 
-const ZERO: Axes = { tight: 0, aggro: 0, bluff: 0, sticky: 0, trap: 0, limp: 0 };
+const ZERO: Axes = { tight: 0, aggro: 0, bluff: 0, sticky: 0, trap: 0, limp: 0, xr: 0, barrel: 0, potCtl: 0 };
 
 export function styleAxes(style: string | undefined, level: number): Axes {
   const s = style && (AI_V3.styles as Record<string, { axes: Partial<Axes> }>)[style];
   if (!s) return ZERO;
   const k = level >= 7 ? AI_V3.styleScale.high : level >= 4 ? AI_V3.styleScale.mid : AI_V3.styleScale.low;
   const a = { ...ZERO, ...s.axes };
-  return { tight: a.tight * k, aggro: a.aggro * k, bluff: a.bluff * k, sticky: a.sticky * k, trap: a.trap * k, limp: a.limp * k };
+  return { tight: a.tight * k, aggro: a.aggro * k, bluff: a.bluff * k, sticky: a.sticky * k, trap: a.trap * k, limp: a.limp * k, xr: a.xr * k, barrel: a.barrel * k, potCtl: a.potCtl * k };
 }
 
 export function styleName(style: string | undefined): string {
@@ -28,6 +36,18 @@ export function styleName(style: string | undefined): string {
 export function stylesFor(level: number): StyleId[] {
   const tier = level >= 7 ? 'high' : level >= 4 ? 'mid' : 'low';
   return (Object.keys(AI_V3.styles) as StyleId[]).filter((id) => (AI_V3.styles[id].tiers as readonly string[]).includes(tier));
+}
+
+/** 직전 스트리트의 마지막 공격자가 나인가 (턴·리버 배럴 판단용) */
+function iHadInitiative(ctx: Ctx): boolean {
+  const v = ctx.view;
+  if (!v) return false;
+  const order = ['preflop', 'flop', 'turn', 'river'];
+  for (let k = order.indexOf(ctx.street) - 1; k >= 0; k--) {
+    const ag = v.actionLog.filter((a) => a.street === order[k] && (a.type === 'bet' || a.type === 'raise'));
+    if (ag.length) return ag[ag.length - 1].seat === v.mySeat;
+  }
+  return false;
 }
 
 /** 확률 일부를 from 쪽에서 to 쪽으로 옮김 (to 안에서는 기존 비율대로, 없으면 고르게) */
@@ -64,7 +84,18 @@ export function applyStyle(options: Option[], probs: number[], intents: Intent[]
     const b3 = raise.filter(isBluff);
     if (ax.bluff > 0 && ctx.raisesPre >= 1 && b3.length) move(probs, fold, b3, ax.bluff * E.bluff * Math.min(1, b3.reduce((a, i) => a + probs[i], 0) * 4));
     if (ax.bluff < 0 && b3.length) move(probs, b3, fold, -ax.bluff * E.bluff);
+    // 폴드 에퀴티 중시: 오픈 하나만 있는 팟에서 블러프 3벳 후보를 더 자주 (폴드 몫에서)
+    if (ax.barrel > 0 && ctx.raisesPre === 1 && b3.length) move(probs, fold, b3, ax.barrel * E.barrel3b * Math.min(1, b3.reduce((a, i) => a + probs[i], 0) * 4));
   } else if (ctx.facingBet) {
+    const log = ctx.view?.actionLog ?? [];
+    const me = ctx.view?.mySeat;
+    const iChecked = log.some((a) => a.street === ctx.street && a.seat === me && a.type === 'check');
+    const iBet = log.some((a) => a.street === ctx.street && a.seat === me && (a.type === 'bet' || a.type === 'raise'));
+    // 레인지 균형: 체크 뒤 벳을 받으면 강한 패(승률 60%+)·세미블러프는 일부 체크레이즈로 (리버 제외)
+    if (ax.xr > 0 && iChecked && ctx.street !== 'river' && eq !== undefined && (eq >= 0.6 || raise.some((i) => intents[i] === 'semibluff'))) move(probs, call, raise, ax.xr * E.xr);
+    // 쇼다운 가치 중시: 큰 팟(내 벳에 레이즈를 받았거나 스택의 1/3 이상이 걸림)에서 승률이 가격+15%p 미만이면 콜 몫 일부를 폴드로
+    const big = iBet || (ctx.view ? ctx.toCall >= ctx.view.legal.stack / 3 : false);
+    if (ax.potCtl > 0 && big && !(eq !== undefined && eq >= ctx.potOdds + 0.15)) move(probs, call, fold, ax.potCtl * E.potCtlFold);
     // 끈질김: 폴드 몫 일부를 콜로 (승률이 아주 낮으면 안 함) / 반대면 콜 몫 일부를 폴드로 (가격보다 확실히 좋으면 안 함)
     const hopeless = eq !== undefined && eq < E.stickyMinEq;
     if (ax.sticky > 0 && !hopeless) move(probs, fold, call, ax.sticky * E.sticky);
@@ -80,6 +111,11 @@ export function applyStyle(options: Option[], probs: number[], intents: Intent[]
     if (ax.bluff < 0 && bluffs.length) move(probs, bluffs, check, -ax.bluff * E.bluff);
     // 함정: 플랍·턴의 아주 강한 패는 일부 체크 (리버는 안 함 — 리버 넛 체크 금지 유지)
     if (ax.trap > 0 && ctx.street !== 'river' && eq !== undefined && eq >= 0.8) move(probs, valueBets, check, ax.trap * E.trap);
+    // 폴드 에퀴티 중시: 주도권(지난 스트리트 마지막 공격자)이 있는 턴·리버에서 블러프 배럴을 이어감
+    if (ax.barrel > 0 && ctx.street !== 'flop' && bluffs.length && iHadInitiative(ctx)) move(probs, check, bluffs, ax.barrel * E.barrel * (0.3 + 0.7 * Math.min(1, bluffs.reduce((a, i) => a + probs[i], 0) * 4)));
+    // 쇼다운 가치 중시: 중간 패(승률 40~70%)는 벳 몫 일부를 체크로 (팟을 작게, 쇼다운으로)
+    if (ax.potCtl > 0 && eq !== undefined && eq >= 0.4 && eq < 0.7) move(probs, valueBets, check, ax.potCtl * E.potCtl);
+    if (ax.potCtl > 0 && bluffs.length) move(probs, bluffs, check, ax.potCtl * E.potCtl * 0.6);
   }
   for (let i = 0; i < probs.length; i++) probs[i] = Math.max(0, probs[i]);
   const d = (sel: number[]) => sel.reduce((a, i) => a + probs[i] - before[i], 0);

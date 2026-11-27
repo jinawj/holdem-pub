@@ -1,13 +1,13 @@
 // 인식(생각 모듈 모음): 사람이 포커 칠 때 떠올리는 개념들을 하나씩 계산해 Percept로 묶는다.
 //  레벨이 낮으면 일부 개념은 아예 안 보이거나(skill 플래그) 흐릿하게(오차) 보인다.
 //  ① 내 패(족보·키커·드로우·블로커)  ② 보드(텍스처·무서운 카드)  ③ 승률(상대 레인지 상대)
-//  ④ 가격(팟 오즈·MDF·SPR·커밋)  ⑤ 포지션·주도권·멀티웨이  ⑥ 라인 읽기(상대 라인·기억)
+//  ④ 가격(팟 오즈·MDF·SPR·커밋)  ⑤ 포지션·주도권·멀티웨이  ⑥ 라인 읽기(상대 라인)
 //  ⑦ 레인지 우위·넛 우위·내 레인지 속 내 패 위치  ⑧ 이전 스트리트의 내 계획
 import { rankOf, suitOf } from '../../engine/cards';
 import { equityVsRanges, EquityResult, Range } from '../core/equity';
 import { AI_V3 } from '../../config';
 import type { Ctx } from './context';
-import { bluffyWithMemory, readLines, SeatLine } from './line';
+import { readLines, SeatLine } from './line';
 import { buildRange, comboIndex, massAbove, rangeSummary } from './range';
 import type { Skill } from './skill';
 import type { Plan, V3Memory } from './types';
@@ -29,7 +29,7 @@ export interface Percept {
   oppRanges: Range[];
   villain: number; // 주 상대 (마지막 공격자 또는 첫 상대)
   vLine: SeatLine;
-  bluffy: number; // 상대 큰 벳의 블러프 가능성 (라인 + 기억)
+  bluffy: number; // 상대 큰 벳의 블러프 가능성 (라인)
   initiative: boolean;
   facingAggressorFirst: boolean;
   scareCard: boolean;
@@ -123,12 +123,7 @@ export function perceive(ctx: Ctx, skill: Skill, mem: V3Memory, rand: () => numb
   let villain = ctx.oppSeats[0];
   for (const a of v.actionLog) if ((a.type === 'bet' || a.type === 'raise') && a.seat !== v.mySeat && ctx.oppSeats.includes(a.seat)) villain = a.seat;
   const vLine = lines[villain];
-  let bluffy = vLine.bluffy;
-  if (skill.oppMemory) {
-    const m = bluffyWithMemory(vLine, mem.opp[villain]);
-    bluffy = m.bluffy;
-    if (m.note) thoughts.push(`기억: ${m.note}`);
-  }
+  const bluffy = vLine.bluffy;
   if (skill.lineBasic) thoughts.push(`상대 라인: ${vLine.story}${skill.lineFull && vLine.capped > 0.4 ? ' (강한 패 빠졌을 수도)' : ''}`);
   // 상대 레인지: 라인 반영 정도는 실력
   const bluffMult = skill.lineFull ? bluffy / 0.25 : 1;

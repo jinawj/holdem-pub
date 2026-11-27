@@ -12,25 +12,11 @@ export function summaryFor(h: HandState, seat: number): HandSummaryForAi {
   const vpip = pre.some((a) => a.type === 'call' || a.type === 'raise' || a.type === 'bet');
   const foldedPreflop = pre.some((a) => a.type === 'fold');
   const riverActs = h.actions.filter((a) => a.street === 'river');
-  const shown = r.shown.map((s) => {
-    const p = h.players.find((x) => x.seat === s)!;
-    const bets = riverActs.filter((a) => a.seat === s && (a.type === 'bet' || a.type === 'raise'));
-    return {
-      seat: s, hole: [...p.hole], riverBetter: bets.length > 0,
-      bigBet: bets.some((a) => a.amount >= 0.6 * (h.snapshots.find((x) => x.street === 'river')?.pot ?? Infinity)),
-      won: (r.won[s] ?? 0) > 0,
-    };
-  });
   let myBluffCaught = false;
   if (r.shown.includes(seat) && h.board.length === 5 && riverActs.some((a) => a.seat === seat && (a.type === 'bet' || a.type === 'raise')) && !(r.won[seat] > 0)) {
     myBluffCaught = categoryOf(evaluate([...me.hole, ...h.board])) <= 1;
   }
-  let biggest: number | null = null, big = 0;
-  if ((r.won[seat] ?? 0) === 0) for (const [s, v] of Object.entries(r.won)) if (v > big && +s !== seat) { big = v; biggest = +s; }
-  return {
-    mySeat: seat, startStack: me.startStack, endStack: me.stack, bb: h.level.bb, vpip, foldedPreflop,
-    board: [...h.board], shown, myBluffCaught, biggestWinnerAgainstMe: biggest,
-  };
+  return { mySeat: seat, startStack: me.startStack, endStack: me.stack, bb: h.level.bb, vpip, foldedPreflop, myBluffCaught };
 }
 
 export interface ActionMemo { actionIndex: number; seat: number; memo: DecisionMemo; view?: PlayerView }

@@ -12,18 +12,9 @@ export interface V3Profile { version: 3; level: number; style?: string }
 export type Intent = 'value' | 'thin' | 'protect' | 'bluff' | 'semibluff' | 'potControl' | 'bluffCatch' | 'trap' | 'float' | 'giveUp' | 'fold' | 'none';
 export interface Plan { handNo: number; street: string; intent: Intent; note: string }
 
-/** 상대가 쇼다운에서 보여 준 것 (라인 → 실제 패) */
-export interface OppRecord {
-  bigBluff: number; // 큰 벳(팟 75%+)·레이즈를 약한 패로
-  bigValue: number; // 큰 벳·레이즈를 강한 패로
-  lightCall: number; // 약한 패로 큰 벳 콜
-}
-
 export interface V3Memory {
   version: 3;
   plans: Plan[]; // 이번 핸드에서 내가 세운 계획들
-  opp: Record<number, OppRecord>; // 좌석 → 기억
-  handsSeen: number;
 }
 
 export interface DecisionMemo {
@@ -50,4 +41,4 @@ export interface DecisionMemo {
 
 export interface AiDecision { type: ActKey; to?: number; thinkMs: number; memo: DecisionMemo }
 
-export interface DecideOpts { quick?: boolean; rand: () => number; speedMult?: number; recallEnabled?: boolean }
+export interface DecideOpts { quick?: boolean; rand: () => number; speedMult?: number }

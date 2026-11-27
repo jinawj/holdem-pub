@@ -229,7 +229,7 @@ export function riverSolve(ctx: Ctx, skill: Skill, bluffMult: number): BrainOut 
     nd.acts.forEach((a, i) => { if (a.startsWith('b') || a === 'r') { const k = probs[i] * (1 - AI_V3.solverBluffScale); probs[i] -= k; moved += k; } });
     if (passive >= 0) probs[passive] += moved;
   }
-  // 읽기 보정: 벳을 받은 블러프 캐처는 라인·기억이 말하는 블러프 가능성만큼 콜을 늘리거나 줄인다
+  // 읽기 보정: 벳을 받은 블러프 캐처는 라인이 말하는 블러프 가능성만큼 콜을 늘리거나 줄인다
   //  (기본은 사람들이 리버 큰 벳에 블러프를 덜 섞는 것 반영: 0.85배)
   const fi = nd.acts.indexOf('f'), ci = nd.acts.indexOf('c');
   const lastBet = riverActs.length ? riverActs[riverActs.length - 1].amount : 0;

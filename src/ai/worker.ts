@@ -9,10 +9,10 @@ const rand = () => {
   return a[0] / 4294967296;
 };
 
-self.onmessage = (e: MessageEvent<{ id: number; view: PlayerView; profile: AiProfile; memory: AiMemory; speedMult: number; recallEnabled: boolean }>) => {
-  const { id, view, profile, memory, speedMult, recallEnabled } = e.data;
+self.onmessage = (e: MessageEvent<{ id: number; view: PlayerView; profile: AiProfile; memory: AiMemory; speedMult: number }>) => {
+  const { id, view, profile, memory, speedMult } = e.data;
   try {
-    const d = decide(view, profile, memory, { rand, speedMult, recallEnabled });
+    const d = decide(view, profile, memory, { rand, speedMult });
     (self as unknown as Worker).postMessage({ id, decision: d });
   } catch (err) {
     (self as unknown as Worker).postMessage({ id, error: String(err) });

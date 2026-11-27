@@ -7,7 +7,7 @@ export type ShowdownStyle = 'quiet' | 'sometimes' | 'shows' | 'showsBluffs' | 's
 export interface PersonaDef {
   name: string; style: string; fish: boolean; lv: [number, number];
   loose: number; aggression: number; bluffMult: number; cbetFreq: number; stickiness: number; foldToAggro: number;
-  limpFreq: number; sizing: Sizing; evWeight: number; tiltProne: number; moodRange: number; recall: number;
+  limpFreq: number; sizing: Sizing; evWeight: number; tiltProne: number; moodRange: number;
   showdownStyle: ShowdownStyle;
   habits: { id: string; adherence: number }[];
   targets: { vpip: [number, number]; pfr: [number, number]; af: [number, number] };
@@ -26,13 +26,12 @@ export interface AiProfile {
   tells?: string[];
 }
 
-/** 핸드 사이에 이어지는 기분·기억 (저장 대상) */
+/** 핸드 사이에 이어지는 기분 (저장 대상) */
 export interface AiMemory {
   tilt: number; // 0..1
   confidence: number; // -1..1
   foldStreak: number; // 연속 프리플랍 폴드 (지루함)
   caughtBluff: number; // 남은 핸드 수: 블러프 들킨 뒤
-  recall: { seat: number; kind: 'sawBluff' | 'sawNutsBigBet' | 'beatMeBig'; handsLeft: number }[];
   handsPlayed: number;
 }
 
@@ -69,7 +68,6 @@ export interface DecideOpts {
   /** [0,1) 난수 */
   rand: () => number;
   speedMult?: number;
-  recallEnabled?: boolean;
 }
 
 export type { PlayerView };

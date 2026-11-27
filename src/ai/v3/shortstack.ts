@@ -45,8 +45,9 @@ export function jamEV(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean
   const notes: string[] = [];
   // 상대 콜 범위는 "내 올인 범위가 얼마나 넓어 보이나"에 따라 넓어짐 (표는 약 15% 올인 범위 기준).
   //  헤즈업·블라인드 싸움은 올인 범위가 넓어서 상대도 넓게 콜함 → 폴드 에퀴티를 과대평가하던 문제
-  const J = v.seats.length === 2 ? 35 : villain === null ? pushPctFor(ctx.effBB, Math.max(1, ctx.behind)) : Math.max(8, Math.min(30, 0.45 * openPctFor(behindPreflop(v, villain), false) + 4));
-  const widen = Math.pow(J / 15, 0.9);
+  const J = v.seats.length === 2 ? AI_V3.huJamPct : villain === null ? pushPctFor(ctx.effBB, Math.max(1, ctx.behind)) : Math.max(8, Math.min(30, 0.45 * openPctFor(behindPreflop(v, villain), false) + 4));
+  // 사람들은 이론 콜 범위보다 넓게 콜한다(특히 오픈한 뒤 올인을 받으면) → AI_V3.jamCallLoose 배
+  const widen = Math.pow(J / 15, 0.9) * AI_V3.jamCallLoose;
   // 주 상대
   if (villain !== null) {
     const vs = v.seats.find((s) => s.seat === villain)!;
@@ -69,7 +70,8 @@ export function jamEV(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean
     const add = Math.min(o.stack + o.committed, jamTo) - o.committed;
     const need = add / Math.max(1, pot + risk + add);
     // 이미 콜(림프·콜드콜)한 사람은 레이즈를 안 한 만큼 강한 패가 덜 있음
-    const cp = Math.min(95, callPctForNeed(need) * widen * (acted.has(o.seat) ? 0.6 : 0.85));
+    //  이미 콜한 사람은 레이즈를 안 한 만큼 강한 패가 덜 있지만, 팟이 커서 좋은 가격에 잘 따라온다 (리뷰 상황 2차: 콜러 앞 ATo·Q9s 올인)
+    const cp = Math.min(95, callPctForNeed(need) * widen * (acted.has(o.seat) ? AI_V3.jamCallerMult : 0.85));
     foldAll *= 1 - cp / 100;
     restCp = Math.max(restCp, cp);
   }

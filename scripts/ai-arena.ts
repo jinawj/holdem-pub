@@ -35,14 +35,14 @@ function v3Bot(level: number, style?: string): Bot {
   return {
     name: `v3 Lv${level}${style ? ' ' + style : ''}`,
     decide: (view, rand) => V3.decide(view, prof, mem, { rand, quick: true }),
-    endHand: (h, seat) => V3.observeHandV3(mem, seat, h.actions as any, h.board, shownCards(h)),
+    endHand: () => V3.endHandV3(mem),
   };
 }
 function v2Bot(level: number, seedRand: () => number): Bot {
   const id: V2.PersonaId = level >= 10 ? 'solver' : level >= 4 ? 'reg' : 'beginner';
   const prof = V2.makeProfile(id, level, seedRand);
   const mem = V2.newMemory();
-  return { name: `v2 ${V2.PERSONAS[id].name} Lv${level}`, decide: (view, rand) => V2.decide(view, prof, mem, { rand, quick: true, recallEnabled: false }) };
+  return { name: `v2 ${V2.PERSONAS[id].name} Lv${level}`, decide: (view, rand) => V2.decide(view, prof, mem, { rand, quick: true }) };
 }
 function shownCards(h: HandState) {
   if (!h.result || h.result.uncontested) return [];

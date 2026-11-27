@@ -7,7 +7,7 @@ import { buildContext, Ctx } from './context';
 import { judgeClear, judgeLean, leanTo, lockToClear } from './clarity';
 import { applyGuards } from './guards';
 import { applyHabits } from './habits';
-import { applyTemperature, humanizeSize, recallAdjust, sizeTell, thinkTime } from './human';
+import { applyTemperature, humanizeSize, sizeTell, thinkTime } from './human';
 import { levelFx, PERSONAS } from './persona';
 import { postflopPolicy } from './postflop';
 import { preflopPolicy } from './preflop';
@@ -32,27 +32,16 @@ function isRiverNuts(view: PlayerView): boolean {
   return true;
 }
 
-function lastAggressor(view: PlayerView): number | null {
-  for (let i = view.actionLog.length - 1; i >= 0; i--) {
-    const a = view.actionLog[i];
-    if (a.street !== view.street) break;
-    if (a.type === 'bet' || a.type === 'raise') return a.seat;
-  }
-  return null;
-}
-
 export function decide(view: PlayerView, prof: AiProfile, mem: AiMemory, opts: DecideOpts): AiDecision {
   const t0 = now();
   const ctx = buildContext(view);
   const fx = levelFx(prof.level);
   const rand = opts.rand;
   const quick = !!opts.quick;
-  const recallOn = opts.recallEnabled !== false;
-  const radj = recallAdjust(mem, prof, lastAggressor(view), recallOn);
 
   const pol = view.street === 'preflop'
     ? preflopPolicy(ctx, prof, mem, rand, quick)
-    : postflopPolicy(ctx, prof, mem, rand, quick, radj);
+    : postflopPolicy(ctx, prof, mem, rand, quick);
 
   // 정리: 불가능한 옵션 제거, 같은 키 합치기
   let options: Option[] = [];

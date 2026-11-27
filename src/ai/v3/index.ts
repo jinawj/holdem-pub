@@ -8,15 +8,12 @@ import { evaluate as evalHand } from '../../engine/evaluator';
 import type { PlayerView } from '../../engine/view';
 import { buildContext, Ctx } from './context';
 import { perceive } from './concepts';
-import { rememberShowdown } from './line';
 import { preflopPolicy } from './preflop';
 import { skillOf, tierName } from './skill';
 import { riverSolve } from './solver';
 import { applyStyle, styleAxes, styleName, stylesFor } from './style';
 import { BrainOut, evaluate, gutBrain, rangeBrain } from './strategy';
 import type { AiDecision, DecideOpts, Intent, Option, V3Memory, V3Profile } from './types';
-import { strengthOnBoard } from '../core/equity';
-import { comboIndex } from './range';
 
 export * from './types';
 export { skillOf, tierName } from './skill';
@@ -24,7 +21,7 @@ export { skillOf, tierName } from './skill';
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
 export function makeProfileV3(level: number, style?: string): V3Profile { return style && style !== 'standard' ? { version: 3, level, style } : { version: 3, level }; }
-export function newMemoryV3(): V3Memory { return { version: 3, plans: [], opp: {}, handsSeen: 0 }; }
+export function newMemoryV3(): V3Memory { return { version: 3, plans: [] }; }
 
 function isRiverNuts(view: PlayerView): boolean {
   if (view.board.length < 5) return false;
@@ -158,7 +155,8 @@ export function decide(view: PlayerView, prof: V3Profile, mem: V3Memory, opts: D
     const bets = options.map((o, i) => (o.act === 'raise' ? i : -1)).filter((i) => i >= 0);
     if (ci >= 0 && bets.length && probs[ci] > 0.1) { const m = probs[ci] - 0.1; probs[ci] = 0.1; const bs = bets.reduce((a, i) => a + probs[i], 0); bets.forEach((i) => (probs[i] += bs > 0 ? (m * probs[i]) / bs : m / bets.length)); }
   }
-  const tail = skill.level <= 3 && (brain === 'gut' || brain === 'pre') ? AI_V3.tailCutLow : brain === 'gut' || brain === 'solver' || (brain === 'pre' && skill.level <= 6) ? AI_V3.tailCutGut : AI_V3.tailCut;
+  // 최고 레벨(9+) 레인지 브레인: 판단과 반대인 드문 행동(95% 콜인데 5% 폴드 등)은 굴리지 않음 — 리뷰 상황 1차
+  const tail = skill.level <= 3 && (brain === 'gut' || brain === 'pre') ? AI_V3.tailCutLow : brain === 'gut' || brain === 'solver' || (brain === 'pre' && skill.level <= 6) ? AI_V3.tailCutGut : brain === 'range' && skill.level >= 9 ? AI_V3.tailCutTop : AI_V3.tailCut;
   const t = probs.map((x) => (x < tail ? 0 : x));
   if (t.some((x) => x > 0)) probs = norm(t);
   // 고르기
@@ -215,14 +213,8 @@ function thinkTime(ctx: Ctx, probs: number[], chosen: Option, level: number, ran
   return Math.round(ms * speedMult);
 }
 
-/** 핸드가 끝난 뒤: 쇼다운에서 공개된 패로 상대 기억 갱신 (공개 정보만) */
-export function observeHandV3(mem: V3Memory, mySeat: number, actions: PlayerView['actionLog'], board: number[], shown: { seat: number; hole: [number, number] }[]) {
-  mem.handsSeen++;
-  mem.plans = [];
-  if (board.length < 5 || shown.length < 2) return;
-  const str = strengthOnBoard(board);
-  rememberShowdown(mem, mySeat, actions, shown.map((s) => ({ seat: s.seat, strength: str[comboIndex(s.hole[0], s.hole[1])] })));
-}
+/** 핸드가 끝난 뒤: 이번 핸드에서 세운 계획을 비움 */
+export function endHandV3(mem: V3Memory) { mem.plans = []; }
 
 /** 표시용 의도를 실제 패 강도에 맞춤 (승률 높은 '블러프', 약한 '밸류', 몬스터 아닌 '함정' 방지) */
 function sanitizeIntent(i: Intent, act: string, eq: number | undefined): Intent {

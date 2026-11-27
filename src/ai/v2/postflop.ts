@@ -24,7 +24,7 @@ export function betSizesFor(ctx: Ctx, prof: AiProfile): number[] {
   return sizes;
 }
 
-export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: () => number, quick: boolean, recallAdj: { callBoost: number; foldBoost: number }): PostOut {
+export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: () => number, quick: boolean): PostOut {
   const L = ctx.view.legal;
   const p = prof.p;
   const fx = levelFx(prof.level);
@@ -110,7 +110,7 @@ export function postflopPolicy(ctx: Ctx, prof: AiProfile, mem: AiMemory, rand: (
       options.push(raiseOpt);
     }
     // ---- 사람식 판단: "내 패가 이 라인·벳 크기 상대로 버틸 만한가" (v2) ----
-    const d = planDefense(rd, ctx, p, aggr, prof.level, recallAdj, eq);
+    const d = planDefense(rd, ctx, p, aggr, prof.level, eq);
     let pCont = d.cont;
     let pRaise = raiseOpt ? d.raise : 0;
     if (raiseOpt && raiseOpt.to === L.maxRaiseTo && classRank(rd.cls) < 4 && ctx.spr > 1.5) pRaise *= 0.3;
@@ -196,7 +196,7 @@ function planBet(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, n: number,
 }
 
 /** 벳을 받았을 때: 계속할 확률·레이즈 확률. 사람식: 패 강도 × 벳 크기 × 가격, 고수일수록 블러프를 의식(히어로콜) */
-function planDefense(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, level: number, recall: { callBoost: number; foldBoost: number }, eq: number): { cont: number; raise: number; why: string; noRaise: boolean } {
+function planDefense(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, level: number, eq: number): { cont: number; raise: number; why: string; noRaise: boolean } {
   const c = rd.cls;
   const river = ctx.street === 'river';
   const small = ctx.lastBetFrac <= 0.4;
@@ -248,10 +248,10 @@ function planDefense(rd: Read, ctx: Ctx, p: AiProfile['p'], aggr: number, level:
   if (ctx.potOdds < 0.2 && c !== 'air') cont = Math.max(cont, 0.8);
   // 계산이 '이건 진짜 아니다'라고 할 때만 브레이크 (보드 위험은 read에서 이미 반영)
   if (eq < 0.08 && c !== 'monster' && !stationHope) cont *= 0.4;
-  // 성향·기억
+  // 성향
   if (c === 'medium' || c === 'weak') cont += (1 - cont) * Math.max(0, p.stickiness) * 0.35;
   if (polar) cont *= 1 - Math.max(0, p.foldToAggro) * 0.5;
-  cont = clamp(cont + recall.callBoost * 2 - recall.foldBoost * 2, 0, 1);
+  cont = clamp(cont, 0, 1);
   raise = clamp(raise * (1 + aggr * 0.8) * (c === 'air' || c === 'draw' ? Math.max(0.2, p.bluffMult) : 1), 0, 0.9);
   raise = Math.min(raise, cont);
   return { cont, raise, why, noRaise };

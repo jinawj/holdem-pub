@@ -61,7 +61,7 @@ scripts/                 sim, ai-spots, ai-match, ai-cli, ai-arena(v3 대결장)
 - 이번 개선: 직접 계산한 푸시/폴드 표(헤즈업 10BB SB 58.2%/BB 37.1%, 참고값 56.6/38.5), 무작위 실수 → 수동적·과다 콜 방향 실수, 레벨별 텔(Lv5 이하, 솔버·레귤러 없음), 기어 변화(초반 피쉬 느슨·칩리더 압박·숏스택 조급).
 - 측정: 시험지 100%, 성향 통계 대부분 목표 안, 듀플리케이트 레벨 서열 6/8.
 - **남은 AI 문제**: 피쉬 구간(Lv1–3)에서 끝까지 간다 Lv1이 Lv3보다 덜 짐(역전). 바위 Lv3→5 차이 유의하지 않음. 멀티웨이 푸시 범위는 근사(콜러 1명 가정).
-- 상대 착취(사람 분석)는 **하지 않기로 결정**. 쇼다운 기억 반응만 있음(설정에서 끌 수 있음).
+- 상대 착취(사람 분석)는 **하지 않기로 결정**. 쇼다운 기억 반응도 2026-11-27에 삭제(설정 항목 포함).
 
 ## 6-1. AI v2 (2026-11-25~, 진행 중) — "사람의 포커적 사고" 모방
 - 앱·스크립트는 `src/ai/v2` 사용. v1은 2026-11-26 삭제(v3의 기준선은 v2).
@@ -78,18 +78,19 @@ scripts/                 sim, ai-spots, ai-match, ai-cli, ai-arena(v3 대결장)
 ## 6-2. AI v3 (2026-11-26~, 개발 중) — 생각 모듈 + 레벨별 '보는 능력'
 - 구조: **인식 → 두뇌 → 선택**. 앱 연결 전이라 AI 전용 대결장에서만 돌린다.
   - `v3/concepts.ts` 인식: 내 패·보드·승률·가격(팟 오즈·MDF·SPR·커밋)·포지션·주도권·라인 읽기·레인지/넛 우위·이전 계획
-  - `v3/line.ts` 라인 읽기: 좌석별 라인 요약(오픈→C벳→체크백…), 강함·블러프 가능성·캡. 쇼다운 기억(`rememberShowdown`)으로 상대별 블러프 비율 반영
-  - `v3/range.ts` 레인지: 공개 액션으로 1326콤보 갱신. 벳·레이즈는 '밸류 (1−β) + 블러프 β' 구성으로(β는 config `AI_V3.rangeBluffShare` × 라인·기억)
+  - `v3/line.ts` 라인 읽기: 좌석별 라인 요약(오픈→C벳→체크백…), 강함·블러프 가능성·캡
+  - `v3/range.ts` 레인지: 공개 액션으로 1326콤보 갱신. 벳·레이즈는 '밸류 (1−β) + 블러프 β' 구성으로(β는 config `AI_V3.rangeBluffShare` × 라인)
   - `v3/strategy.ts` 두뇌: `gutBrain`(초급~중급, 패 등급+보이는 개념) / `rangeBrain`(상급+, 레인지 벳 빈도·사이즈·밸류:블러프 비율·MDF+승률 교차) / `evaluate`(EV)
   - `v3/solver.ts` 고수(Lv9+) 리버 미니 솔버: 리버 시작 레인지를 22묶음으로, 체크/벳 2가지/레이즈 1번 트리를 CFR+로 (40ms 상한)
   - `v3/preflop.ts` v2 프리플랍을 스타일 없이 표준으로 + 레벨 표. `v3/skill.ts` 레벨 → 보는 개념. 숫자는 전부 config `AI_V3`
-- 레벨 차이 = 일부러 틀리게가 아니라 **무엇을 보느냐**: 팟 오즈 Lv3+, 포지션·라인 기본 Lv4+, 벳 크기 의미·계획 기억 Lv5+, 라인 전체 Lv6+, 레인지 전략·상대 기억 Lv7+, 오버벳·리버 솔버 Lv9+. 승률 감각 오차·라인 반영 정도도 레벨별.
-- 플레이 스타일: `v3/style.ts` + config `AI_V3.styles`(축: tight·aggro·bluff·sticky·trap·limp). 두뇌가 낸 확률만 밀고, 상한·안전장치는 그 뒤에 그대로. 레벨 구간별 목록(하수: 입문자·콜스테이션·막 지르는·겁 많은 / 중급: 정석·TAG·콜 경향·겁 많은 / 고수: 정석·TAG·LAG·함정형), 앱 배정은 `createProfilesV3`(구간 안에서 고르게 돌아가며).
+- 레벨 차이 = 일부러 틀리게가 아니라 **무엇을 보느냐**: 팟 오즈 Lv3+, 포지션·라인 기본 Lv4+, 벳 크기 의미·계획 기억 Lv5+, 라인 전체 Lv6+, 레인지 전략 Lv7+, 오버벳·리버 솔버 Lv9+. 승률 감각 오차·라인 반영 정도도 레벨별.
+- 플레이 스타일: `v3/style.ts` + config `AI_V3.styles`(축: tight·aggro·bluff·sticky·trap·limp). 두뇌가 낸 확률만 밀고, 상한·안전장치는 그 뒤에 그대로. 레벨 구간별 목록(하수: 입문자·콜스테이션·막 지르는·겁 많은 / 중급: 정석·TAG·콜 경향·겁 많은 / 고수: 정석·TAG·LAG·함정형·밸런스형·압박형·쇼다운형 — 뒤 3개는 축 xr·barrel·potCtl, '무엇을 중시하나'의 차이), 앱 배정은 `createProfilesV3`(구간 안에서 고르게 돌아가며).
 - 도구:
   - `npx tsx scripts/ai-arena.ts --mode vs --pairs 6000 --levels 4,6,8,10` : v3 vs v2 헤즈업 듀플리케이트 (약 2분)
   - `npx tsx scripts/ai-arena.ts --mode ladder --pairs 6000 [--pairsOf 1-2,2-3]` : v3 레벨끼리 헤즈업 (약 4~10분)
   - `npx tsx scripts/ai-arena.ts --mode ring --level 8 [--opp v3:5] [--style lag] --hands 6000 --stackRange 20-150 --ante 0.125` : 6인 링(v3×3 vs v2×3 또는 v3 다른 레벨·표준). **실제 게임에 가장 가까운 기준** — 초급 레벨 차이·스타일 손익은 이걸로 잰다
   - `npx tsx scripts/ai-arena.ts --mode log --hands 45 --levels 7,8,9,10,9,10 --seed N --out reports/x.md` : 생각 과정 붙은 6인 기록
+  - `npx tsx scripts/ai-situations.ts --mode score --hands 6000 [--only hu,short] [--style pressure]` : **최고 레벨 상황별 시험**(딥·중간·숏·나만 숏·나만 빅·섞임·헤즈업, 기준 v2 솔버 대비 bb/100 + 통계, 약 2분). `--mode log --hands 12 --seed N --out reports/x.md` = 리뷰어용 기록
   - `npx tsx scripts/ai-diag.ts --level 10 --pairs 3000 [--worst --nworst 12] [--opp v3:5]` : 어디서 칩을 잃는지 + 최악 핸드의 생각 과정
 - 리뷰 루프: log를 `poker-reviewer` 에이전트(Sonnet, 노력 중간, `.claude/agents/poker-reviewer.md`)에게 고수·하수 테이블 따로 읽힘 → 모듈 수정 → vs·ladder로 측정. 헤즈업 100BB는 분산이 커서 6000쌍(1.2만 핸드)도 신뢰구간 ±15bb/100.
 

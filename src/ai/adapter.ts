@@ -29,21 +29,15 @@ export function newMemoryFor(p: AnyProfile): AnyMemory {
   return isV3(p) ? V3.newMemoryV3() : V2.newMemory();
 }
 
-export function decide(view: PlayerView, p: AnyProfile, mem: AnyMemory, opts: { rand: () => number; speedMult?: number; recallEnabled?: boolean; quick?: boolean }): AiDecision {
+export function decide(view: PlayerView, p: AnyProfile, mem: AnyMemory, opts: { rand: () => number; speedMult?: number; quick?: boolean }): AiDecision {
   if (isV3(p)) return V3.decide(view, p, mem as V3.V3Memory, opts);
   return V2.decide(view, p, mem as V2.AiMemory, opts) as AiDecision;
 }
 
-/** 핸드가 끝난 뒤 기억 갱신 (공개 정보만). v3는 쇼다운에서 본 상대 라인을 기억 */
-export function afterHand(p: AnyProfile, mem: AnyMemory, h: HandState, seat: number, recallEnabled: boolean): AnyMemory {
-  if (isV3(p)) {
-    const m = mem as V3.V3Memory;
-    const shown = h.result && !h.result.uncontested ? h.players.filter((x) => !x.folded).map((x) => ({ seat: x.seat, hole: [x.hole[0], x.hole[1]] as [number, number] })) : [];
-    if (recallEnabled) V3.observeHandV3(m, seat, h.actions, h.board, shown);
-    else { m.plans = []; m.handsSeen++; }
-    return m;
-  }
-  return V2.updateMemory(mem as V2.AiMemory, p, summaryFor(h, seat), recallEnabled);
+/** 핸드가 끝난 뒤 AI 상태 갱신: v2는 기분(틸트·자신감 등), v3는 이번 핸드 계획 비우기 */
+export function afterHand(p: AnyProfile, mem: AnyMemory, h: HandState, seat: number): AnyMemory {
+  if (isV3(p)) { V3.endHandV3(mem as V3.V3Memory); return mem; }
+  return V2.updateMemory(mem as V2.AiMemory, summaryFor(h, seat));
 }
 
 export function wantsToShow(p: AnyProfile, won: boolean, rand: () => number): boolean {

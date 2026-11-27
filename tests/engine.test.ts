@@ -184,6 +184,51 @@ describe('all-in showdown reveals every hand (no muck)', () => {
   });
 });
 
+describe('showdown order and muck', () => {
+  // 3인, 버튼 0 → 포스트플랍 순서 1(SB) · 2(BB) · 0(버튼)
+  const toFlop = (holes: Record<number, string>) => {
+    const h = mkHand({ stacks: [10000, 10000, 10000], button: 0, holes, board: 'KsQs3h8c4d' });
+    applyMove(h, { type: 'call' }); applyMove(h, { type: 'call' }); applyMove(h, { type: 'check' });
+    return h;
+  };
+  const checkStreet = (h: ReturnType<typeof mkHand>) => { for (let i = 0; i < 3; i++) applyMove(h, { type: 'check' }); };
+
+  it('river bettor shows first, then clockwise; a losing caller mucks', () => {
+    const h = toFlop({ 0: 'AhAd', 1: '7c2d', 2: '9c9d' });
+    checkStreet(h); checkStreet(h);
+    applyMove(h, { type: 'check' }); applyMove(h, { type: 'check' });
+    applyMove(h, { type: 'raise', to: 400 }); // 버튼(AA) 리버 벳
+    applyMove(h, { type: 'call' }); applyMove(h, { type: 'call' });
+    expect(h.result!.showOrder).toEqual([0, 1, 2]);
+    expect(h.result!.shown).toEqual([0]);
+  });
+
+  it('players behind the bettor table the hand only when it beats or ties what is shown', () => {
+    const h = toFlop({ 0: 'AhAd', 1: '7c2d', 2: '9c9d' });
+    checkStreet(h); checkStreet(h);
+    applyMove(h, { type: 'raise', to: 400 }); // SB(7-2) 리버 블러프
+    applyMove(h, { type: 'call' }); applyMove(h, { type: 'call' });
+    expect(h.result!.showOrder).toEqual([1, 2, 0]);
+    expect(h.result!.shown).toEqual([1, 2, 0]); // 99가 이겨서 공개, AA가 더 이겨서 공개
+  });
+
+  it('checked-down river starts left of the button, even with an earlier-street aggressor', () => {
+    const h = toFlop({ 0: '7c2d', 1: 'AhAd', 2: '9c9d' });
+    applyMove(h, { type: 'check' }); applyMove(h, { type: 'check' });
+    applyMove(h, { type: 'raise', to: 400 }); // 플랍은 버튼이 벳
+    applyMove(h, { type: 'call' }); applyMove(h, { type: 'call' });
+    checkStreet(h); checkStreet(h);
+    expect(h.result!.showOrder).toEqual([1, 2, 0]);
+    expect(h.result!.shown).toEqual([1]);
+  });
+
+  it('a tying hand is shown, not mucked', () => {
+    const h = toFlop({ 0: 'AhJd', 1: 'AcJs', 2: '7c2d' });
+    checkStreet(h); checkStreet(h); checkStreet(h);
+    expect(h.result!.shown).toEqual([1, 0]);
+  });
+});
+
 describe('heads-up blinds', () => {
   it('button posts SB, acts first preflop and last postflop', () => {
     const h = mkHand({ stacks: [10000, 10000], button: 0 });

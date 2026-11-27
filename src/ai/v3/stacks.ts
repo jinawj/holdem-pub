@@ -60,6 +60,8 @@ export function riskPremium(view: PlayerView, villainSeat: number): number {
   const me = view.seats.find((s) => s.seat === view.mySeat)!;
   const v = view.seats.find((s) => s.seat === villainSeat);
   if (!v) return 0;
+  // 2명만 남음(헤즈업 결승): 생존 가치 = 칩 가치. 프리미엄 없음 (리뷰: SB가 3벳 받고 77% 폴드하던 원인)
+  if (view.seats.filter((s) => s.stack + s.committed > 0).length <= 2) return 0;
   const myBB = (me.stack + me.committed) / bb, vBB = (v.stack + v.committed) / bb;
   const R = AI_V3.riskPremium;
   if (myBB < 10) return R.short;

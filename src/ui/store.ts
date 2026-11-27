@@ -13,11 +13,11 @@ import { kvDel, kvGet, kvSet } from '../persist/db';
 import { exportJson, migrateSave } from '../persist/file';
 
 export interface Settings {
-  seats: number; stackBB: number; levelMinutes: number; aiSpeed: AiSpeed; difficulty: Difficulty; recall: boolean;
+  seats: number; stackBB: number; levelMinutes: number; aiSpeed: AiSpeed; difficulty: Difficulty;
   /** 내 닉네임 (브라우저에 기억) */ myName?: string;
   /** AI 버전 (없으면 v2 — 예전 저장·설정 호환). v3는 베타 */ aiVersion?: AiVersion;
 }
-export const defaultSettings: Settings = { seats: 8, stackBB: 200, levelMinutes: DEFAULT_LEVEL_MINUTES, aiSpeed: 'normal', difficulty: 'normal', recall: true };
+export const defaultSettings: Settings = { seats: 8, stackBB: 200, levelMinutes: DEFAULT_LEVEL_MINUTES, aiSpeed: 'normal', difficulty: 'normal' };
 
 export interface Highlight { handNo: number; actionIndex: number; street: string }
 export interface Report { id: string; at: number; handNo: number; actionIndex: number; seat: number; name: string; comment: string; memo: unknown; view: unknown; profile: unknown }
@@ -220,7 +220,7 @@ export const useStore = create<Store>((set, get) => ({
     g.history.push(makeHandRecord(h, g.curMemos, g.curBaseline, g.voluntaryShown, HUMAN));
     for (const p of h.players) {
       if (p.seat === HUMAN) continue;
-      g.ai[p.seat].memory = afterHand(g.ai[p.seat].profile, g.ai[p.seat].memory, h, p.seat, g.settings.recall);
+      g.ai[p.seat].memory = afterHand(g.ai[p.seat].profile, g.ai[p.seat].memory, h, p.seat);
     }
     finishHand(g.t);
     g.t.hand = null;

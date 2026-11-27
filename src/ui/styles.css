@@ -191,10 +191,20 @@ h3 { margin: 8px 0 0; }
 .hole.mucked { animation: muck 480ms ease-in forwards; }
 @keyframes muck { 0% { transform: none; opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(0.4) rotate(25deg); opacity: 0; } }
 .hole.gone { visibility: hidden; }
+/* 핸드 종료: 순서대로(--sd-delay) 공개 또는 muck */
+.hole.mucked { animation-delay: var(--sd-delay, 0ms); animation-fill-mode: both; }
+.act-label.muck-label { color: #9aa8c2; animation-delay: var(--sd-delay, 0ms); }
+.sd-flip { display: inline-block; position: relative; }
+.sd-flip > span { display: block; }
+.sd-flip .card { display: flex; }
+.sd-flip .sd-front { animation: flip 420ms ease-out var(--sd-delay, 0ms) both; }
+.sd-flip .sd-back { position: absolute; inset: 0; animation: hide-at 1ms linear var(--sd-delay, 0ms) forwards; }
+.sd-lift { display: inline-block; animation: sd-lift 520ms ease-out var(--sd-delay, 0ms) both; }
+@keyframes sd-lift { 0%, 100% { transform: none; } 45% { transform: translateY(-12px); } }
 /* 핸드가 끝나면 팟은 승자 공개 순간(칩이 승자에게 날아갈 때) 사라짐 */
 .hand-over .pots { animation: hide-at 1ms linear var(--win-delay, 0ms) forwards; }
 /* 승자 공개 전까지 결과를 숨김: 족보 이름, 받은 뒤 스택 */
-.hand-over .hand-name { animation: show-late 300ms ease-out var(--win-delay, 0ms) both; }
+.hand-over .hand-name { animation: show-late 300ms ease-out var(--sd-delay, var(--win-delay, 0ms)) both; }
 @keyframes show-late { 0% { opacity: 0; } 100% { opacity: 1; } }
 .stk.swap { display: grid; }
 .stk.swap > span { grid-area: 1 / 1; }

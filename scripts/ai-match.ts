@@ -40,7 +40,7 @@ function duel(pa: Prof, pb: Prof, seedBase: number, da: Decider = decide, db: De
         players: [0, 1].map((s) => ({ seat: s, name: 'P' + s, stack: stackBB * BB })),
       });
       const mems = [newMemory(), newMemory()];
-      runHand(h, (hs, seat) => decs[seat](makePlayerView(hs, seat, 2), profs[seat], mems[seat], { rand: rands[seat], quick: true, recallEnabled: false }), rs, 2);
+      runHand(h, (hs, seat) => decs[seat](makePlayerView(hs, seat, 2), profs[seat], mems[seat], { rand: rands[seat], quick: true }), rs, 2);
       const p = h.players.find((x) => x.seat === aSeat)!;
       pairSum += (p.stack - p.startStack) / BB;
     }

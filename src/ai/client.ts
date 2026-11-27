@@ -20,10 +20,10 @@ function getWorker(): Worker {
   return worker;
 }
 
-export function askAi(view: PlayerView, profile: AiProfile, memory: AiMemory, speedMult: number, recallEnabled: boolean): Promise<AiDecision> {
+export function askAi(view: PlayerView, profile: AiProfile, memory: AiMemory, speedMult: number): Promise<AiDecision> {
   const id = nextId++;
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject });
-    getWorker().postMessage({ id, view, profile, memory, speedMult, recallEnabled });
+    getWorker().postMessage({ id, view, profile, memory, speedMult });
   });
 }

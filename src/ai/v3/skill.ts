@@ -14,7 +14,6 @@ export interface Skill {
   plan: boolean;
   lineFull: boolean;
   rangeStrategy: boolean;
-  oppMemory: boolean;
   overbet: boolean;
   solver: boolean;
   evTemp: number;
@@ -40,7 +39,6 @@ export function skillOf(level: number): Skill {
     plan: L >= f.plan,
     lineFull: L >= f.lineFull,
     rangeStrategy: L >= f.rangeStrategy,
-    oppMemory: L >= f.oppMemory,
     overbet: L >= f.overbet,
     solver: L >= f.solver,
     evTemp: lv(AI_V3.evTemp, L),

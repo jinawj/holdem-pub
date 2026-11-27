@@ -1,8 +1,6 @@
 // 라인 읽기 모듈: 한 핸드 동안 각 플레이어가 걸어온 길을 사람 말로 정리하고,
 //  그 라인이 말해 주는 '강함'과 '블러프 섞였을 가능성'을 숫자로 만든다.
-//  + 상대가 예전 핸드에서 쇼다운으로 보여 준 것(같은 종류 라인 → 실제 패)을 기억해 반영한다.
 import type { PlayerView } from '../../engine/view';
-import type { OppRecord, V3Memory } from './types';
 
 export const STREETS = ['preflop', 'flop', 'turn', 'river'] as const;
 type St = (typeof STREETS)[number];
@@ -111,38 +109,4 @@ function interpret(L: SeatLine, view: PlayerView, pfa: number | null) {
   L.bluffy = bluffy;
   L.capped = capped;
   L.story = parts.join(' → ');
-}
-
-/** 상대 기억 반영: 큰 벳 블러프를 보여 준 상대는 블러프 가능성↑, 밸류만 보여 준 상대는↓ */
-export function bluffyWithMemory(L: SeatLine, rec: OppRecord | undefined): { bluffy: number; note?: string } {
-  if (!rec) return { bluffy: L.bluffy };
-  const n = rec.bigBluff + rec.bigValue;
-  if (n === 0) return { bluffy: L.bluffy };
-  const shown = rec.bigBluff / n; // 보여 준 블러프 비율
-  if (n < 3) return { bluffy: L.bluffy }; // 한두 번 본 걸로 판단하지 않음
-  const w = Math.min(0.6, (n - 2) / 6); // 볼수록 믿음
-  const b = (1 - w) * L.bluffy + w * Math.max(0.05, Math.min(0.6, shown));
-  return { bluffy: b, note: `예전에 큰 벳 ${n}번 중 블러프 ${rec.bigBluff}번 봄` };
-}
-
-export function emptyRecord(): OppRecord { return { bigBluff: 0, bigValue: 0, lightCall: 0 }; }
-
-/** 쇼다운 공개 정보로 상대 기억 갱신 (공개된 카드·액션만 사용) */
-export function rememberShowdown(mem: V3Memory, mySeat: number, actions: PlayerView['actionLog'], shown: { seat: number; strength: number }[]) {
-  let pot = 0;
-  const big: Record<number, boolean> = {};
-  const bigCall: Record<number, boolean> = {};
-  for (const a of actions) {
-    const before = pot;
-    pot += a.amount;
-    if (a.street === 'preflop' || a.seat === mySeat) continue;
-    if ((a.type === 'bet' || a.type === 'raise') && before > 0 && (a.amount / before >= 0.75 || a.type === 'raise')) big[a.seat] = true;
-    if (a.type === 'call' && before > 0 && a.amount / before >= 0.5) bigCall[a.seat] = true;
-  }
-  for (const s of shown) {
-    if (s.seat === mySeat) continue;
-    const rec = (mem.opp[s.seat] ??= emptyRecord());
-    if (big[s.seat]) { if (s.strength < 0.45) rec.bigBluff++; else if (s.strength > 0.75) rec.bigValue++; }
-    if (bigCall[s.seat] && s.strength < 0.5) rec.lightCall++;
-  }
 }

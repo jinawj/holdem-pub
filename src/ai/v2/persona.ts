@@ -65,9 +65,9 @@ export function makeProfile(personaId: PersonaId, level: number, rand: () => num
     cbetFreq: d.cbetFreq + (rand() * 2 - 1) * 0.05, stickiness: d.stickiness + (rand() * 2 - 1) * 0.05,
     foldToAggro: d.foldToAggro + (rand() * 2 - 1) * 0.05, limpFreq: Math.min(1, j(d.limpFreq)), sizing: d.sizing,
     evWeight: j(d.evWeight), tiltProne: Math.min(1, j(d.tiltProne)), moodRange: Math.min(1, j(d.moodRange)),
-    recall: Math.min(1, j(d.recall)), showdownStyle: d.showdownStyle,
+    showdownStyle: d.showdownStyle,
   };
-  if (personaId === 'solver') { p.tiltProne = 0; p.moodRange = 0; p.recall = 0; p.aggression = 0; p.loose = 1; p.bluffMult = 1; }
+  if (personaId === 'solver') { p.tiltProne = 0; p.moodRange = 0; p.aggression = 0; p.loose = 1; p.bluffMult = 1; }
   // 좋은 습관(레귤러 등)은 레벨이 높을수록 잘 지킴. 피쉬 성향의 습관은 레벨과 무관하게 일정
   // (피쉬의 레벨 차이는 방향 있는 실수의 개수·강도로 만든다)
   const habitScale = d.fish ? 1 : fx.habitAcc;
@@ -103,7 +103,7 @@ export function makeProfile(personaId: PersonaId, level: number, rand: () => num
 }
 
 export function newMemory(): AiMemory {
-  return { tilt: 0, confidence: 0, foldStreak: 0, caughtBluff: 0, recall: [], handsPlayed: 0 };
+  return { tilt: 0, confidence: 0, foldStreak: 0, caughtBluff: 0, handsPlayed: 0 };
 }
 
 export function isFish(personaId: PersonaId, level: number) {

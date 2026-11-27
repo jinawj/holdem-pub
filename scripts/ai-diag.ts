@@ -21,7 +21,7 @@ for (let i = 0; i < pairs; i++) {
   for (const swap of [false, true]) {
     const p3 = V3.makeProfileV3(level), m3 = V3.newMemoryV3();
     const oppDec = opp === 'v2'
-      ? (() => { const id: V2.PersonaId = level >= 10 ? 'solver' : 'reg'; const pr = V2.makeProfile(id, level, R.rand), m = V2.newMemory(); return (v: any) => V2.decide(v, pr, m, { rand: R.rand, quick: true, recallEnabled: false }); })()
+      ? (() => { const id: V2.PersonaId = level >= 10 ? 'solver' : 'reg'; const pr = V2.makeProfile(id, level, R.rand), m = V2.newMemory(); return (v: any) => V2.decide(v, pr, m, { rand: R.rand, quick: true }); })()
       : (() => { const pr = V3.makeProfileV3(+opp.split(':')[1]), m = V3.newMemoryV3(); return (v: any) => V3.decide(v, pr, m, { rand: R.rand, quick: true }); })();
     const me = swap ? 1 : 0;
     const h = startHand({ handNo: i * 2 + (swap ? 1 : 0) + 1, seed, level: { level: 1, sb: BB / 2, bb: BB, ante: anteBB * BB }, numSeats: 2, buttonSeat: 0, sbSeat: 0, bbSeat: 1, players: [0, 1].map((s) => ({ seat: s, name: 'P' + s, stack: stack * BB })) });

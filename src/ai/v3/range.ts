@@ -1,5 +1,5 @@
 // 레인지 모듈: 공개 액션으로 1326 콤보 가중치를 갱신. 상대 레인지와 '내 레인지'(상대가 보는 나) 둘 다 만든다.
-//  라인 읽기 결과(블러프 가능성·캡)를 반영. 평균적인 플레이어 모델 + 상대 기억.
+//  라인 읽기 결과(블러프 가능성·캡)를 반영. 평균적인 플레이어 모델.
 import { COMBOS, COMBO_KEYS } from '../../engine/cards';
 import { AI, AI_V3 } from '../../config';
 import type { PlayerView } from '../../engine/view';
@@ -48,7 +48,7 @@ export interface RangeOpts {
   dead?: number[];
   /** 이 스트리트부터의 액션은 무시 (리버 솔버: 리버 시작 시점 레인지) */
   until?: (typeof STREETS)[number];
-  /** 이 좌석의 블러프 비중 배수 (라인 읽기·기억) */
+  /** 이 좌석의 블러프 비중 배수 (라인 읽기) */
   bluffMult?: number;
 }
 

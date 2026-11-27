@@ -1,7 +1,5 @@
-// 사람다움: 실수 온도, 금액 반올림, 고민 시간, 기분·기억 갱신, 쇼다운 행동 (overview 3.7, 3.8)
+// 사람다움: 실수 온도, 금액 반올림, 고민 시간, 기분 갱신, 쇼다운 행동 (overview 3.7, 3.8)
 import { AI } from '../../config';
-import type { Card } from '../../engine/cards';
-import { categoryOf, evaluate } from '../../engine/evaluator';
 import type { Ctx } from './context';
 import { levelFx } from './persona';
 import type { AiMemory, AiProfile, Option } from './types';
@@ -94,16 +92,12 @@ export interface HandSummaryForAi {
   bb: number;
   vpip: boolean; // 프리플랍에 자발적으로 참여
   foldedPreflop: boolean;
-  board: Card[];
-  /** 쇼다운에서 공개된 카드 */
-  shown: { seat: number; hole: Card[]; riverBetter: boolean; bigBet: boolean; won: boolean }[];
   /** 내가 블러프하다 들켰는지 */
   myBluffCaught: boolean;
-  biggestWinnerAgainstMe: number | null;
 }
 
-export function updateMemory(mem: AiMemory, prof: AiProfile, s: HandSummaryForAi, recallEnabled: boolean): AiMemory {
-  const m: AiMemory = { ...mem, recall: mem.recall.map((r) => ({ ...r, handsLeft: r.handsLeft - 1 })).filter((r) => r.handsLeft > 0) };
+export function updateMemory(mem: AiMemory, s: HandSummaryForAi): AiMemory {
+  const m: AiMemory = { ...mem };
   m.handsPlayed++;
   m.tilt *= AI.tiltDecay;
   m.confidence *= 0.9;
@@ -114,32 +108,7 @@ export function updateMemory(mem: AiMemory, prof: AiProfile, s: HandSummaryForAi
   if (delta > 10 * s.bb) m.confidence = Math.min(1, m.confidence + 0.3);
   m.foldStreak = s.foldedPreflop ? m.foldStreak + 1 : 0;
   if (s.myBluffCaught) m.caughtBluff = 3;
-  if (recallEnabled && prof.p.recall > 0) {
-    const hands = Math.round(AI.recallHands * prof.p.recall) + 1;
-    for (const sh of s.shown) {
-      if (sh.seat === s.mySeat || !sh.riverBetter || s.board.length < 5) continue;
-      const cat = categoryOf(evaluate([...sh.hole, ...s.board]));
-      const boardCat = categoryOf(evaluate(s.board));
-      if (cat <= Math.max(1, boardCat)) m.recall.push({ seat: sh.seat, kind: 'sawBluff', handsLeft: hands });
-      else if (sh.bigBet && cat >= 4) m.recall.push({ seat: sh.seat, kind: 'sawNutsBigBet', handsLeft: hands });
-    }
-    if (s.biggestWinnerAgainstMe !== null && delta < -20 * s.bb) m.recall.push({ seat: s.biggestWinnerAgainstMe, kind: 'beatMeBig', handsLeft: hands });
-  }
   return m;
-}
-
-/** 단순 기억 반응: 지금 벳한 상대에 대한 감정적 조정 */
-export function recallAdjust(mem: AiMemory, prof: AiProfile, aggressor: number | null, enabled: boolean) {
-  const out = { callBoost: 0, foldBoost: 0 };
-  if (!enabled || aggressor === null) return out;
-  const k = prof.p.recall;
-  for (const r of mem.recall) {
-    if (r.seat !== aggressor) continue;
-    if (r.kind === 'sawBluff') out.callBoost += 0.06 * k;
-    if (r.kind === 'sawNutsBigBet') out.foldBoost += 0.06 * k;
-    if (r.kind === 'beatMeBig' && mem.tilt > 0.3) out.callBoost += 0.05 * k;
-  }
-  return out;
 }
 
 /** 쇼다운 행동: 보여주지 않아도 되는 카드를 보여줄지 */

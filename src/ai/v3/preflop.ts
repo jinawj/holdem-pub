@@ -192,7 +192,9 @@ function evMode(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean): Pre
   const L = ctx.view.legal;
   const villain = ctx.lastPreRaiser ?? ctx.oppSeats[0];
   // 4벳·5벳 팟은 누구나 '아주 센 패'로 읽음 (초급도), 3벳 팟은 꽤 강하게
-  const readMin = ctx.raisesPre >= 3 ? 0.85 : ctx.raisesPre === 2 ? 0.6 : AI.allInReadMinV2;
+  //  헤즈업은 3벳(올인) 범위가 넓다 → 덜 좁혀 읽음 (리뷰 상황 1차: 헤즈업 SB가 3벳 받고 77% 폴드)
+  const hu = ctx.view.seats.length === 2;
+  const readMin = ctx.raisesPre >= 3 ? (hu ? 0.6 : 0.85) : ctx.raisesPre === 2 ? (hu ? 0.3 : 0.6) : AI.allInReadMinV2;
   const range = buildRange(ctx.view, villain, { read: Math.max(skill.rangeRead, readMin) });
   const n = quick ? AI.preflopMcSamples.quick : AI.preflopMcSamples.normal;
   // 이미 돈을 넣은 다른 사람(콜러·올인)은 그 사람 레인지까지 같이 계산 (푸시 뒤 콜러는 강함)
@@ -262,16 +264,27 @@ function shortStackLayer(ctx: Ctx, skill: Skill, rand: () => number, quick: bool
   const j = jamEV(ctx, skill, rand, quick, villain);
   const vr = buildRange(v, villain, { read: Math.max(0.6, skill.rangeRead) });
   const eqAll = equityVsRanges(v.holeCards, [], [vr], quick ? 150 : 400, rand).eq;
-  const isBB = v.mySeat === v.bbSeat;
-  const realize = isBB ? 0.8 : !caseA ? 0.75 : 0.85;
-  const evCall = eqAll * realize * (ctx.pot + ctx.toCall) - ctx.toCall;
+  const isBB = v.mySeat === v.bbSeat, isSB = v.mySeat === v.sbSeat && v.seats.length > 2;
+  // 콜(플랫)의 승률 실현: 포지션·뒤에 남은 사람(스퀴즈 위험)만큼 깎는다. BB 아닌 플랫은 판단이 어려운 만큼 페널티
+  //  (리뷰 상황 1차: 10~25BB에서 BB 외 플랫 35% — 생 승률을 다 실현한다고 가정했던 게 원인)
+  const SC = AI_V3.shortCall;
+  const behindN = ctx.activeOpp.filter((s) => s !== villain && !v.actionLog.some((a) => a.street === 'preflop' && a.seat === s && !['ante', 'sb', 'bb'].includes(a.type))).length;
+  // BB도 패 종류별: 연결 안 된 오프수트 잡패는 플랍에서 대부분 접으므로 실현율이 낮다 (리뷰 상황 2차: 36o·23o·J2o 방어)
+  const R13 = 'AKQJT98765432', k0 = ctx.key;
+  const gap0 = R13.indexOf(k0[1]) - R13.indexOf(k0[0]);
+  const junkOff = k0.length === 3 && k0[2] === 'o' && k0[0] !== 'A' && (gap0 >= 3 || (R13.indexOf(k0[0]) >= R13.indexOf('T') && gap0 >= 2));
+  const bbReal = junkOff ? SC.bbJunk : k0.length === 3 && k0[2] === 'o' ? SC.bbOff : SC.bb;
+  const realize = (isBB ? bbReal : !caseA ? 0.75 : isSB ? SC.sb : SC.ip) * Math.pow(SC.perBehind, caseA && !isBB ? behindN : 0);
+  const evCall = eqAll * realize * (ctx.pot + ctx.toCall) - ctx.toCall - (caseA && !isBB ? SC.penaltyBB * ctx.bb : 0);
+  // 짧은 스택(15BB 이하)에서 BB 아닌 자리의 플랫은 포켓페어(셋 노림)만
+  const noFlat = caseA && !isBB && ctx.effBB <= SC.pairOnlyBB && ctx.key.length !== 2;
   const jamTo = legalTo(ctx, L.maxRaiseTo);
   const opts: Option[] = [{ key: 'fold', act: 'fold', ev: 0 }, { key: 'call', act: 'call', ev: evCall }, { key: 'raise:' + jamTo, act: 'raise', to: jamTo, ev: j.evJam }];
   const temp = lvl >= 7 ? 0.05 : 0.12;
   const vals = opts.map((o) => (o.ev ?? 0) / Math.max(1, ctx.pot));
   const mx = Math.max(...vals);
   // 아주 짧으면(8BB 이하) 콜하고 플랍 보는 건 낭비: 올인 아니면 폴드
-  if (ctx.effBB <= 8) vals[1] = -Infinity;
+  if (ctx.effBB <= 8 || noFlat) vals[1] = -Infinity;
   const ex = vals.map((x) => Math.exp((x - mx) / temp));
   const es = ex.reduce((a, b) => a + b, 0);
   // 기본 정책을 같은 세 행동으로 옮김 (레이즈 = 올인으로 봄)
@@ -279,12 +292,14 @@ function shortStackLayer(ctx: Ctx, skill: Skill, rand: () => number, quick: bool
   base.options.forEach((o, i) => { bp[o.act === 'fold' || o.act === 'check' ? 0 : o.act === 'call' ? 1 : 2] += base.probs[i]; });
   const w = lvl >= 7 ? 0.85 : 0.5;
   if (ctx.effBB <= 8) { bp[2] += bp[1]; bp[1] = 0; }
+  if (noFlat) { bp[0] += bp[1]; bp[1] = 0; }
   let probs = bp.map((b, i) => (1 - w) * b + w * (ex[i] / es));
   // 상급+: 최선보다 확실히 나쁜 선택(EV 손실이 Lv9+ 0.1BB, Lv7~8 0.25BB 넘음)은 고르지 않음 — 계산을 알면서 확률로 손해 보지 않게
   if (lvl >= 7) {
-    const best = Math.max(...opts.map((o, i) => (i === 1 && ctx.effBB <= 8 ? -Infinity : o.ev ?? 0)));
+    const noCall = ctx.effBB <= 8 || noFlat;
+    const best = Math.max(...opts.map((o, i) => (i === 1 && noCall ? -Infinity : o.ev ?? 0)));
     const cut = (lvl >= 9 ? 0.1 : 0.25) * ctx.bb;
-    const kept = probs.map((x, i) => ((opts[i].ev ?? 0) < best - cut || (i === 1 && ctx.effBB <= 8) ? 0 : x));
+    const kept = probs.map((x, i) => ((opts[i].ev ?? 0) < best - cut || (i === 1 && noCall) ? 0 : x));
     if (kept.some((x) => x > 0)) { const s = kept.reduce((a, b) => a + b, 0); probs = kept.map((x) => x / s); }
   }
   const why = `숏스택 대응(${caseA ? '오픈을 받음' : '3벳을 받음'}, 유효 ${ctx.effBB.toFixed(0)}BB): 콜 EV ${(evCall / ctx.bb).toFixed(1)}BB(승률 ${(eqAll * 100).toFixed(0)}%) · ${j.why}`;
