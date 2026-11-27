@@ -89,7 +89,8 @@ function basePolicy(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean, 
     // 초급은 포지션 감각이 약함: 앞자리도 뒷자리처럼 넓게, 뒷자리는 좁게
     const hu = ctx.view.seats.length === 2;
     const posO = skill.position ? openPctFor(ctx.behind, hu) : (openPctFor(ctx.behind, hu) + 20) / 2;
-    let o = posO * deepOpen;
+    // v3 자리별 오픈 배수 (v2와 공유하는 표를 건드리지 않고 v3만 조정 — 상황별 점검 튜닝)
+    let o = posO * deepOpen * (lvl >= 7 ? AI_V3.openScale[Math.max(1, Math.min(5, ctx.behind)) - 1] : 1);
     if (limpers > 0) o *= 0.55;
     // 스택 보고 조절: 칩리더는 중간 스택들을 압박(넓게), 뒤에 나를 커버하는 빅스택·올인 받아칠 숏스택이 있으면 조금 좁게
     if (lvl >= 7 && st.pressure > 0) o *= 1 + (AI_V3.leaderOpenMult - 1) * st.pressure;
@@ -137,7 +138,7 @@ function basePolicy(ctx: Ctx, skill: Skill, rand: () => number, quick: boolean, 
       band = Math.max(band, D * Math.min(1.2, callMult) - v);
     }
     // 헤즈업 BB: 넓은 SB 오픈에 3벳 약 16%, 전체 수비 약 70% (초급은 가격 감각이 없어 좁게)
-    if (ctx.view.seats.length === 2) { v = Math.min(v, 16); band = Math.min(band, (skill.potOdds ? 70 : 55) - v); }
+    if (ctx.view.seats.length === 2) { v = Math.min(v, AI_V3.hu.bb3bet); band = Math.min(band, (skill.potOdds ? AI_V3.hu.bbDefend : 55) - v); }
     let p3 = sig((v - pct) / w);
     // 블러프 3벳은 넓은 오픈(늦은 자리)을 상대로만. 앞자리 오픈(좁고 강함)엔 거의 안 함
     const b3 = lv(AI_V3.pre.bluff3bet, lvl) * (o >= 18 ? 1 : 0.25);

@@ -280,8 +280,8 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     let B: number, role: string;
     // 레이저 앞: 레인지 우위가 없어도 최소한의 리드(동크)를 섞는다 — 체크 100%면 상대 C벳이 공짜 (리뷰 상황 1차)
     if (p.facingAggressorFirst) { B = AI_V3.donkBase + Math.max(0, na) * 2 + Math.max(0, ra); role = '레이저 앞(동크 자리)'; }
-    else if (p.initiative) { B = S === 'flop' ? 0.55 + (p.dryBoard ? 0.15 : p.wetBoard ? -0.12 : 0) : S === 'turn' ? 0.45 + (p.scareCard ? 0.05 : 0) : 0.4; role = '주도권 있음'; }
-    else { B = S === 'flop' ? 0.38 : S === 'turn' ? 0.42 : 0.36; role = '체크로 넘어옴'; }
+    else if (p.initiative) { const RB = AI_V3.rangeBet; B = S === 'flop' ? RB.flop + (p.dryBoard ? RB.dry : p.wetBoard ? RB.wet : 0) : S === 'turn' ? RB.turn + (p.scareCard ? RB.scare : 0) : RB.river; role = '주도권 있음'; }
+    else { const RB = AI_V3.rangeBet; B = S === 'flop' ? RB.checkedFlop : S === 'turn' ? RB.checkedTurn : RB.checkedRiver; role = '체크로 넘어옴'; }
     B += clamp(ra * 0.8 + na * 0.8, -0.2, 0.15);
     if (!ctx.ip) B *= 0.85;
     B *= Math.pow(0.6, Math.max(0, ctx.numOpp - 1));
@@ -338,6 +338,8 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
     if (othersAllChecked && p.eqRaw >= 0.55) pValue = Math.max(pValue, 0.65);
     // 실제로 강한 패(승률 70%+, 레인지 상위권)는 레인지 벳 비율과 상관없이 밸류를 친다 — 레이저 앞에서도 가끔 리드, 리버는 자주
     if (p.eqRaw >= 0.7 && myStr >= 0.8) pValue = Math.max(pValue, p.facingAggressorFirst ? (S === 'river' ? 0.6 : 0.3) : 0.75);
+    // 남은 스택이 팟 2배 이하(SPR ≤ 2)인 강한 패: 함정·팟 조절할 여유가 없음 → 거의 항상 벳 (상황별 점검: SPR 1.1~1.3 밸류를 15~30% 체크)
+    if (ctx.spr <= 2 && p.eqRaw >= 0.65 && myStr >= 0.6 && !p.facingAggressorFirst) pValue = Math.max(pValue, 0.92);
     const pBet = clamp(Math.max(pValue, pBluff), 0, 0.97);
     const opts: Option[] = [{ key: 'check', act: 'check' }];
     const probs = [1 - pBet];
@@ -360,7 +362,7 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
         if (to2 !== to) { const share = AI_V3.sizeMixTop; opts.push({ key: 'raise:' + to2, act: 'raise', to: to2 }); probs[probs.length - 1] = pBet * (1 - share); probs.push(pBet * share); intents.push(intents[intents.length - 1]); sizeWhy += ` · 크기 섞기(${Math.round(alt * 100)}% ${Math.round(share * 100)}%)`; }
       }
     }
-    const why = `${role} · 레인지 벳 ${(B * 100).toFixed(0)}% (밸류 ${(V * 100).toFixed(0)}% + 블러프 ${(Bb * 100).toFixed(0)}%) · ${sz.why}${sizeWhy} → 내 패 상위 ${(rv * 100).toFixed(0)}%${pBet < 0.3 ? ` → 벳 영역 밖(블러프 후보 순위 ${(bluffRank * 100).toFixed(0)}%)` : isValue ? ` → 밸류 영역` : ` → 블러프로 선택(후보 순위 ${(bluffRank * 100).toFixed(0)}%)`}`;
+    const why = `${role} · 레인지 벳 ${(B * 100).toFixed(0)}% (밸류 ${(V * 100).toFixed(0)}% + 블러프 ${(Bb * 100).toFixed(0)}%) · ${sz.why}${sizeWhy} → 내 패 상위 ${(rv * 100).toFixed(0)}%${pBet < 0.15 ? ` → 벳 영역 밖(블러프 후보 순위 ${(bluffRank * 100).toFixed(0)}%)` : !isValue ? ` → 블러프로 선택(후보 순위 ${(bluffRank * 100).toFixed(0)}%)` : pBet >= 0.7 ? ` → 밸류 영역` : ` → 밸류 경계(벳 ${(pBet * 100).toFixed(0)}% 섞음)`}`;
     return { options: opts, probs, intents, why, source: 'range' };
   }
 
@@ -368,7 +370,7 @@ export function rangeBrain(ctx: Ctx, p: Percept, skill: Skill): BrainOut {
   //  레이즈를 받았거나 스택이 걸린 결정이면 읽기(승률)를 더 믿는다 — 사람들의 레이즈·큰 올인은 밸류 쪽으로 치우침
   const eff = p.myEff!;
   const vsRaise = v.actionLog.some((a) => a.street === ctx.street && a.seat === v.mySeat && (a.type === 'bet' || a.type === 'raise'));
-  let defend = p.mdf * clamp(0.62 + 1.1 * p.bluffy, 0.55, 1.05);
+  let defend = p.mdf * clamp(AI_V3.defend.base + AI_V3.defend.bluffy * p.bluffy, 0.55, 1.05);
   defend /= 1 + 0.5 * (ctx.numOpp - 1);
   defend = clamp(defend, 0.1, 0.95);
   const rr = massAbove(R, eff, eff[me]);

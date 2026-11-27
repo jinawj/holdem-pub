@@ -91,6 +91,8 @@ scripts/                 sim, ai-spots, ai-match, ai-cli, ai-arena(v3 대결장)
   - `npx tsx scripts/ai-arena.ts --mode ring --level 8 [--opp v3:5] [--style lag] --hands 6000 --stackRange 20-150 --ante 0.125` : 6인 링(v3×3 vs v2×3 또는 v3 다른 레벨·표준). **실제 게임에 가장 가까운 기준** — 초급 레벨 차이·스타일 손익은 이걸로 잰다
   - `npx tsx scripts/ai-arena.ts --mode log --hands 45 --levels 7,8,9,10,9,10 --seed N --out reports/x.md` : 생각 과정 붙은 6인 기록
   - `npx tsx scripts/ai-situations.ts --mode score --hands 6000 [--only hu,short] [--style pressure]` : **최고 레벨 상황별 시험**(딥·중간·숏·나만 숏·나만 빅·섞임·헤즈업, 기준 v2 솔버 대비 bb/100 + 통계, 약 2분). `--mode log --hands 12 --seed N --out reports/x.md` = 리뷰어용 기록
+  - `npx tsx scripts/ai-situations.ts --mode audit --hands 3000` : **레귤러 통계 범위 + 사고 과정 모순 점검**(약 50초, 토큰 0). `--mode log --contra foldAbovePrice` = 그 모순 핸드만 기록
+  - `npx tsx scripts/ai-tune.ts --hands 1000 --passes 3 [--only hu] [--params a,b]` : AI_V3 숫자 자동 튜닝(약 45분, 10분 넘으므로 별도 프로세스로). 결과 reports/tune-result.json → 검토 후 config에
   - `npx tsx scripts/ai-diag.ts --level 10 --pairs 3000 [--worst --nworst 12] [--opp v3:5]` : 어디서 칩을 잃는지 + 최악 핸드의 생각 과정
 - 리뷰 루프: log를 `poker-reviewer` 에이전트(Sonnet, 노력 중간, `.claude/agents/poker-reviewer.md`)에게 고수·하수 테이블 따로 읽힘 → 모듈 수정 → vs·ladder로 측정. 헤즈업 100BB는 분산이 커서 6000쌍(1.2만 핸드)도 신뢰구간 ±15bb/100.
 

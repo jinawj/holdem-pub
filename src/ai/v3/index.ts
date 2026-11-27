@@ -156,7 +156,7 @@ export function decide(view: PlayerView, prof: V3Profile, mem: V3Memory, opts: D
     if (ci >= 0 && bets.length && probs[ci] > 0.1) { const m = probs[ci] - 0.1; probs[ci] = 0.1; const bs = bets.reduce((a, i) => a + probs[i], 0); bets.forEach((i) => (probs[i] += bs > 0 ? (m * probs[i]) / bs : m / bets.length)); }
   }
   // 최고 레벨(9+) 레인지 브레인: 판단과 반대인 드문 행동(95% 콜인데 5% 폴드 등)은 굴리지 않음 — 리뷰 상황 1차
-  const tail = skill.level <= 3 && (brain === 'gut' || brain === 'pre') ? AI_V3.tailCutLow : brain === 'gut' || brain === 'solver' || (brain === 'pre' && skill.level <= 6) ? AI_V3.tailCutGut : brain === 'range' && skill.level >= 9 ? AI_V3.tailCutTop : AI_V3.tailCut;
+  const tail = skill.level <= 3 && (brain === 'gut' || brain === 'pre') ? AI_V3.tailCutLow : brain === 'gut' || brain === 'solver' || (brain === 'pre' && skill.level <= 6) ? AI_V3.tailCutGut : brain === 'range' && skill.level >= 9 ? AI_V3.tailCutTop : brain === 'pre' && skill.level >= 9 ? AI_V3.tailCutPreTop : AI_V3.tailCut;
   const t = probs.map((x) => (x < tail ? 0 : x));
   if (t.some((x) => x > 0)) probs = norm(t);
   // 고르기
